@@ -39,16 +39,23 @@ from plotnine import ggplot, aes, geom_line, labs, theme_minimal, theme_bw, scal
 ```
 
 ```{code-cell} ipython3
-# Function to plot the functions involved in the synthetic data generation
+# Creates a simple plot using plotnine
 def plot_function(x, y, title, xlab, ylab):
+    # Convert x to numpy array
     x = np.array(x)
+    
+    # Check if y is a callable function
     if callable(y):
-        df = pd.DataFrame({"x": x, "y": y( x ) })
+        # If y is a function, apply it to x and create a DataFrame
+        df = pd.DataFrame({"x": x, "y": y(x)})
     else:
-        df = pd.DataFrame({"x": x, "y": y })        
+        # If y is not a function, create a DataFrame directly
+        df = pd.DataFrame({"x": x, "y": y})        
 
-    # plot the logistic growth curve
-    plot = ( ggplot(df, aes(x="x", y="y")) + geom_line() + labs(title=title, x=xlab, y=ylab) + theme_bw() )
+    # Create the plot using ggplot
+    plot = (ggplot(df, aes(x="x", y="y")) + geom_line() + labs(title=title, x=xlab, y=ylab) + theme_bw())
+    
+    # Return the plot
     return plot
 ```
 
@@ -58,14 +65,14 @@ In the initial steps, we will create a number of independent components that con
 
 ### 2.1. Create the Time Series
 
-A daily time series is generated starting from March 1, 2017, up to the present day. This ensures sufficient data points to analyze trends and seasonality.
+A daily time series is generated starting from June 1, 2021, up to the present day. This ensures sufficient data points to analyze trends and seasonality.
 
 ```{code-cell} ipython3
 # set the random seed
 np.random.seed(42)
 
 # define date range
-start_date = "2021-01-01"
+start_date = "2021-06-01"
 end_date = pd.Timestamp.today().strftime("%Y-%m-%d")
 date_range = pd.date_range(start=start_date, end=end_date, freq="D")
 
@@ -96,7 +103,7 @@ v = 5      # Asymmetry parameter (v > 1 shifts right, 0 < v < 1 shifts left)
 growth_fn = lambda t: L * (1 + v * np.exp(-k * (t - t0)))**(-1/v)
 growth = growth_fn(days_since_start)
 
-plot_function(x=range(0, len(date_range)+1), y=growth_fn, title="Logistic Growth Over Time", xlab="Days Since Start", ylab="Sales Trend")
+plot_function(x=date_range, y=growth, title="Logistic Growth Over Time", xlab="Days Since Start", ylab="Sales Factor")
 ```
 
 ### 2.3. Yearly Seasonal Pattern
@@ -110,7 +117,7 @@ yearly_seasonality = yearly_seasonality_fn(date_range.day_of_year)
 ```
 
 ```{code-cell} ipython3
-plot_function(x=range(0,366), y=yearly_seasonality_fn, title="Yearly Seasonality", xlab="Day of the Year", ylab="Sales Proportion")
+plot_function(x=range(0,366), y=yearly_seasonality_fn, title="Yearly Seasonality", xlab="Day of the Year", ylab="Sales Factor")
 ```
 
 ### 2.4. Weekly Seasonal Pattern
@@ -120,11 +127,11 @@ Weekly seasonality is also modeled a scaled cosine transformations of the day of
 ```{code-cell} ipython3
 # Weekly seasonality
 weekly_seasonality_fn = lambda day: 1 + 0.1 * np.cos(2 * np.pi * day / 7)
-weekly_seasonality = weekly_seasonality_fn(date_range.day_of_year)
+weekly_seasonality = weekly_seasonality_fn(date_range.weekday)
 ```
 
 ```{code-cell} ipython3
-plot_function(x=range(0,7), y=weekly_seasonality_fn, title="Weekly Seasonality", xlab="Day of the Week", ylab="Sales Proportion")
+plot_function(x=range(1,8), y=weekly_seasonality_fn, title="Weekly Seasonality", xlab="Day of the Week", ylab="Sales Factor") 
 ```
 
 ### 2.5. Combining Growth and Seasonality
@@ -132,7 +139,7 @@ plot_function(x=range(0,7), y=weekly_seasonality_fn, title="Weekly Seasonality",
 ```{code-cell} ipython3
 sales = np.array(growth) * np.array( yearly_seasonality ) * np.array( weekly_seasonality )
 breaks = [pd.Timestamp(d) for d in ["2017-01-01", "2019-01-01", "2021-01-01", "2023-01-01", "2025-01-01"]]
-plot_function(x=date_range, y=sales, title="Weekly Seasonality", xlab="Day of the Week", ylab="Sales Proportion") + scale_x_datetime(breaks = breaks)
+plot_function(x=date_range, y=sales, title="Growth + Seasonality", xlab="Date", ylab="Sales Factor") + scale_x_datetime(breaks = breaks)
 ```
 
 ### 2.6. Random Walk: Unmodeled Influences and External Shocks
@@ -145,14 +152,21 @@ np.random.seed(441)
 random_walk = np.cumsum(np.random.normal(scale=.015, size=len(date_range)))
 centered_random_walk = random_walk - np.mean(random_walk)
 
-plot_function(x=date_range, y = centered_random_walk, title="Weekly Seasonality", xlab="Day of the Week", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
+plot_function(x=date_range, y = centered_random_walk, title="Random Walk Component", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
+```
+
+Let's visualize the growth together with the random walk for future reference, because they will be estimated as one component in the model in the next notebook.
+
+```{code-cell} ipython3
+growth_plus_rw = np.exp( np.log(growth) + centered_random_walk)
+plot_function(x=date_range, y = growth_plus_rw, title="Growth + Random Walk Component", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
 The random walk is combined with the sales pattern created so far in log-space in order to ensure that the effects are multiplicative. This aligns with real-world sales data, where sales fluctuations are typically proportional rather than absolute. This is also a simple way of preventing sales from dropping below 0.
 
 ```{code-cell} ipython3
 sales_with_random_component = np.exp( np.log(sales) + centered_random_walk)
-plot_function(x=date_range, y = sales_with_random_component, title="Weekly Seasonality", xlab="Day of the Week", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
+plot_function(x=date_range, y = sales_with_random_component, title="Growth + Seasonality + Random Walk", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
 ### 2.7. Effect of Price 
@@ -172,22 +186,26 @@ def sample_log_price_change(n, p, min_delta, max_delta):
 ```
 
 ```{code-cell} ipython3
-np.random.seed(52)
-delta_log_price = sample_log_price_change(n=len(date_range), p=0.99, min_delta=-.125, max_delta=.2)
-delta_log_price = np.cumsum(delta_log_price)
-plot_function(x=date_range, y = delta_log_price, title="Change in Δ log price", xlab="Date", ylab="Δ log(price)") + scale_x_datetime(breaks = breaks)
+delta_log_price = [0.0]*len(date_range)
+delta_log_price[150] = .1
+delta_log_price[300] = .1
+delta_log_price[500] = -.15
+delta_log_price[750] = .1
+delta_log_price[1000] = .1
+delta_log_price[1200] = .05
+plot_function(x=date_range, y = np.cumsum(delta_log_price), title="Difference in log price to baseline", xlab="Date", ylab="Δ log(price)") + scale_x_datetime(breaks = breaks)
 ```
 
 ```{code-cell} ipython3
 price_base = 20
-log_price = np.log(price_base) + delta_log_price
+log_price = np.log(price_base) + np.cumsum(delta_log_price)
 
 plot_function(x=date_range, y = np.exp( log_price ), title="Product Price", xlab="Date", ylab="Price") + scale_x_datetime(breaks = breaks)
 ```
 
 ```{code-cell} ipython3
-elasticity = -10 #-0.7
-sales_with_price_effect = np.exp( np.log(sales_with_random_component) + elasticity * delta_log_price)
+elasticity = -1.2
+sales_with_price_effect = np.exp( np.log(sales_with_random_component) + elasticity * (log_price - np.mean(log_price)) )
 plot_function(x=date_range, y = sales_with_price_effect, title="Weekly Seasonality", xlab="Day of the Week", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
@@ -207,14 +225,8 @@ plot_function(x=date_range, y = sales_scaled, title="Weekly Seasonality", xlab="
 What we constructed until now are the expected sales $\lambda$ for each day. We realize them for each day $i$ by drawing them from a Poisson distribution with parameter $\lambda_i$. This approach ensures that while the underlying sales structure is generated smoothly, the final dataset exhibits realistic integer sales values with appropriate stochastic variation.
 
 ```{code-cell} ipython3
-# to-do
-sales_realized = np.random.poisson(lam = np.exp(3 + elasticity * delta_log_price))
+sales_realized = np.random.poisson(lam=sales_scaled)
 plot_function(x=date_range, y = sales_realized, title="Weekly Seasonality", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
-```
-
-```{code-cell} ipython3
-#sales_realized = np.random.poisson(lam=sales_scaled)
-#plot_function(x=date_range, y = sales_realized, title="Weekly Seasonality", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
 ## 4. Sanity-Check
@@ -239,7 +251,7 @@ poisson_model = sm.GLM(y, X, family=sm.families.Poisson()).fit()
 poisson_model.summary()
 ```
 
-## Save Sales
+## 5. Save Sales
 
 Having instantiated the sales time series, we save the latent and realized sales in CSV format.
 

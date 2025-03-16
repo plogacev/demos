@@ -11,9 +11,13 @@ kernelspec:
   name: python3
 ---
 
-# Generating Synthetic Order Volume
+## Sales Forecasting with Bayesian Inference
+
+This notebook demonstrates the use of Bayesian inference for sales forecasting using various probabilistic programming techniques. We will use the `numpyro` library to define and fit our models, and `plotnine` for visualization.
 
 ## Introduction
+
+Bayesian inference allows us to incorporate prior knowledge and quantify uncertainty in our predictions. This notebook will guide you through the process of building a Bayesian model for sales forecasting, fitting the model using Markov Chain Monte Carlo (MCMC) and Stochastic Variational Inference (SVI), and visualizing the results.
 
 +++
 
@@ -28,45 +32,41 @@ os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
 ```
 
 ```{code-cell} ipython3
-import blackjax
-import blackjax.smc.resampling as resampling
-from blackjax.smc import extend_params
-```
-
-```{code-cell} ipython3
 import polars as pl
-import numpy as np
 import pandas as pd
+import numpy as np
 from plotnine import ggplot, aes, geom_point, geom_line, labs, theme_minimal, theme_bw, scale_x_continuous, scale_x_discrete, scale_x_datetime
-```
+import patsy
 
-```{code-cell} ipython3
-import os
-import polars as pl
+import jax
 import jax.numpy as jnp
 import jax.random as random
+from jax.scipy.special import expit, logit
 
 import numpyro
-```
-
-```{code-cell} ipython3
 import numpyro.distributions as dist
-from numpyro.infer import SVI, Trace_ELBO, Predictive
-from numpyro.infer.autoguide import AutoNormal, AutoMultivariateNormal, AutoLaplaceApproximation
-import patsy
-import matplotlib.pyplot as plt
+#from numpyro.infer import SVI, Trace_ELBO, Predictive
+from numpyro.infer import MCMC, NUTS, MCMC, NUTS #, SVI, Trace_ELBO
 import arviz as az
-from numpyro.infer import MCMC, NUTS, HMC, HMCECS, MCMC, NUTS, SA, SVI, Trace_ELBO, init_to_value
-import arviz as az
+
+#jax.config.update("jax_enable_x64", True)  # Enable float64 by default
 ```
 
 ## 1. Model
 
+In this section, we define the Bayesian model used for sales forecasting. The model incorporates various components such as random walk for the latent state, day-of-the-week effects, day-of-the-year effects, and price elasticity. The model is implemented using the `numpyro` library, which allows for efficient and scalable Bayesian inference.
+
 ### 1.1 Auxiliary Functions
 
-- Various functions for data transformations
+These auxiliary functions are essential for data preprocessing and transformation:
+
+- `periodic_rbf`: Computes a periodic Gaussian radial basis function (RBF).
+- `compute_doy_basis`: Computes 12 periodic Gaussian basis functions for seasonal effects.
+- `read_data`: Reads and preprocesses the sales data from a CSV file.
+- `init_values`: Initializes values for the model parameters.
 
 ```{code-cell} ipython3
+# Define a periodic Gaussian radial basis function (RBF)
 def periodic_rbf(x, mu, sigma):
     """
     Computes a periodic Gaussian radial basis function (RBF).
@@ -79,7 +79,9 @@ def periodic_rbf(x, mu, sigma):
     Returns:
         RBF values preserving periodicity.
     """
-    periodic_distance = jnp.minimum(jnp.abs(x - mu), 1 - jnp.abs(x - mu))  # Cyclic distance
+    # compute cyclic distance to mu
+    periodic_distance = jnp.minimum(jnp.abs(x - mu), 1 - jnp.abs(x - mu))
+    # compute RBF value
     return jnp.exp(- (periodic_distance ** 2) / (2 * sigma ** 2))
 
 def compute_doy_basis(yday_fraction, sigma = 30/365.25, n_centers = 12):
@@ -104,51 +106,183 @@ def compute_doy_basis(yday_fraction, sigma = 30/365.25, n_centers = 12):
     
     return doy_basis_centered
 
-def read_data(fname):
+def read_data(fname, n_rows=None):
     """
+    Reads and preprocesses the sales data from a CSV file.
+    
+    Args:
+        fname: The filename of the CSV file containing the sales data.
+    
+    Returns:
+        A dictionary with the following keys:
+            - sales: An array of sales data.
+            - log_price: An array of log-transformed prices.
+            - wday: An array of day-of-the-week values.
+            - yday_fraction: An array of normalized day-of-the-year values.
     """
+    # Read the CSV file using polars
     df = pl.read_csv(fname)
-    df = df.with_columns( pl.col("date").str.to_date())
+    
+    # Keep only the first n_rows if specified
+    if n_rows is not None:
+        df = df.head(n_rows)
+    
+    # Convert the 'date' column to date type
+    df = df.with_columns(pl.col("date").str.to_date())
 
+    # Extract sales, and log price data as a numpy arrays
     sales = df["sales"].to_numpy()
     log_price = df["log_price"].to_numpy()
-    wday = df["date"].dt.weekday().to_numpy()
+    
+    # Extract day-of-the-week values
+    wday = df["date"].dt.weekday().to_numpy() # set offset to 0
+            
+    # Extract day-of-the-year values
     yday = df["date"].dt.ordinal_day().to_numpy()
+    
+    # Determine if the year is a leap year
     is_leap_year = df["date"].dt.is_leap_year().to_numpy()
+    
+    # Normalize day-of-the-year values
     yday_fraction = yday / (365 + is_leap_year)
     
+    # Return the preprocessed data as a dictionary
     return {
+        "date": df["date"].to_numpy(),
         "sales": sales,
         "log_price": log_price,
         "wday": wday,
         "yday_fraction": yday_fraction
     }
-    
-def init_values(sales: jnp.array, log_price_centered: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1):
-    """
-    """
-    # to-do: implement downsampling_factor
-    log_state_est = jnp.log(sales)
-    log_state_mean_est = jnp.mean(log_state_est)
-    log_state_delta_est = jnp.diff(log_state_est)
-    log_state_delta_sd_est = jnp.std(log_state_delta_est)
 
-    return {
-        "log_sigma": jnp.log( log_state_delta_sd_est ),
-        "log_state_mean": log_state_mean_est,
-        "log_state_delta": log_state_delta_est,
-        "wday_coefficients": jnp.array([0.0]*6),
-        "yday_coefficients": jnp.array([0.0]*12),
-        "log_elasticity": jnp.array([0.0])
-    }
+def interpolate(x, downsampling_factor, n_out):
+    """
+    """
+    idx_n_weight = jnp.array(range(0, n_out))/jnp.float64(downsampling_factor)
+    idx_1 = jnp.array( jnp.floor(idx_n_weight), dtype=int)
+    idx_2 = jnp.array( jnp.ceil(idx_n_weight), dtype=int)
+    weight_2 = idx_n_weight - idx_1
+
+    state_before = x[idx_1]
+    state_after  = x[idx_2]
+
+    return (1-weight_2)*state_before + weight_2*state_after
+
+def chunked_mean(x, n_chunk):
+    n = x.shape[0]
+    pad_size = -n % n_chunk # compute padding needed to make k a multiple of n
+    x_padded = jnp.pad(array = x, pad_width = (0, pad_size), mode = 'edge') # pad at the end
+    return x_padded.reshape(-1, n_chunk).mean(axis=1)
+
+def chunked_sum(x, n_chunk):
+    n = x.shape[0]
+    pad_size = -n % n_chunk # compute padding needed to make k a multiple of n
+    x_padded = jnp.pad(array = x, pad_width = (0, pad_size)) # pad at the end
+    return x_padded.reshape(-1, n_chunk).sum(axis=1)
+```
+
+```{code-cell} ipython3
+# Creates a simple plot using plotnine
+def plot_function(x, y, title, xlab, ylab):
+    # Convert x to numpy array
+    x = np.array(x)
+    
+    # Check if y is a callable function
+    if callable(y):
+        # If y is a function, apply it to x and create a DataFrame
+        df = pd.DataFrame({"x": x, "y": y(x)})
+    else:
+        # If y is not a function, create a DataFrame directly
+        df = pd.DataFrame({"x": x, "y": y})        
+
+    # Create the plot using ggplot
+    plot = (ggplot(df, aes(x="x", y="y")) + geom_line() + labs(title=title, x=xlab, y=ylab) + theme_bw())
+    
+    # Return the plot
+    return plot
 ```
 
 ### 1.2 Model
 
-- The actual model
+#### 1.2.1 Key Features
+
+- Sales are modeled using a **stochastic Poisson process**, where the expected rate $\lambda_t$ evolves over time.
+- The **latent sales rate** follows a random walk, allowing it to drift nonstationarily.
+- **Seasonal components** (day-of-the-week and annual patterns) adjust for structured demand variations.
+- **Price elasticity** is explicitly modeled, ensuring sensitivity to pricing dynamics.
+- The model is implemented in numpyro, enabling scalable Bayesian inference.
+
+
+#### 1.2.1 Model Overview
+
+We model the sales time series as a **stochastic process** where the underlying rate of sales evolves over time. This evolution follows a **random walk structure**, but with systematic adjustments for covariates such as price, day-of-the-week effects, and day-of-the-year effects. The rate of sales $\lambda_t$ on day $t$ is a function of captures *(i)* systematic covariate effects ($z_t$), *(ii)*
+a global baseline ($\mu_\tau$), and *(iii)* the latent dynamic component ($\tau_t$).
+
+$$
+log~\lambda_t = z_t + \mu_\tau + \tau_t
+$$
+
+##### 1.2.1.1 Latent States Dynamics
+
+The baseline sales level $\tau_t$ follows a **random walk**. Because all contrast matrices for structured effects are centered, $\mu_\tau + \tau_t$ can be interpreted as the average latent sales rate on $\tau_t$. 
+
+$$
+\tau_t = \tau_{t-1} + \delta_t, \quad \delta_t \sim \mathcal{N}(0, \sigma_\tau)
+$$
+
+with:
+
+$$
+\mu_\tau \sim \text{Exponential}(1), \quad \sigma_\tau \sim \mathcal{N}(1)
+$$
+
+
+##### 1.2.1.2 Structured Effects
+
+We further accounted for systematic effects of *(i)* day of the week, *(ii)* day of the year, and *(iii)* price.
+
+- For day of the week effects, we used a contrast matrix $\mathbf{C}_{\text{wday}}$ with sliding differences.
+- For day of the year effects, we used a matrix of Gaussian radial basis functions $\mathbf{B}_{\text{yday}}$.
+- Price elasticity is modelled using a centered log price 
+
+Similarly, the day-of-the-year effects are modeled using a seasonality basis matrix $\mathbf{B}_{\text{yday}}$, which represents periodic seasonal patterns using Gaussian radial basis functions (RBFs).
+
+
+- **Day-of-the-week effects**:
+
+$$
+  zw_t = \mathbf{C}_{\text{wday}} \cdot \beta_{\text{wday}}, \quad \beta_{\text{wday}} \sim \mathcal{N}(0, 1)
+$$
+
+- **Day-of-the-year effects**:
+
+$$
+  zy_t = \mathbf{B}_{\text{yday}} \cdot \beta_{\text{yday}}, \quad \beta_{\text{yday}} \sim \mathcal{N}(0, 1)
+$$
+
+- **Price elasticity**:
+
+$$
+  ze_t = \text{log\_price\_centered} \cdot e, \quad \log(-e) \sim \mathcal{N^{+}}(0, 1)
+$$
+
+- **Sum of structural effects**:
+
+$$
+  z_t = zw_t + zy_t + ze_t
+$$
+
+
+##### 1.2.1.3 Emissions Model
+
+Observed sales are assumed to follow a **Poisson distribution**, ensuring discrete, non-negative observations:
+
+$$
+S_t \sim \text{Poisson}(\lambda_t)
+$$
 
 ```{code-cell} ipython3
-def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, wday, yday_fraction: jnp.array, 
+def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, wday: jnp.array, yday_fraction: jnp.array, 
                               contrasts_sdif_t: jnp.array, contrasts_wday: jnp.array, contrasts_yday: jnp.array, 
                               downsampling_factor = 1):
     """
@@ -158,24 +292,17 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
     n_states = contrasts_sdif_t.shape[0]
  
     def sample_random_walk(contrasts_sdif_t, n_states):
-        log_sigma = numpyro.sample("log_sigma", dist.Gumbel(0, 1))
+        log_sigma = numpyro.sample("log_sigma", dist.Gumbel(0, 5))
         sigma = numpyro.deterministic("sigma", jnp.exp(log_sigma))
-        log_state_mean = numpyro.sample("log_state_mean", dist.Normal(0, 5))
+        log_state_mean = numpyro.sample("log_state_mean", dist.Normal(0, 5)) # to-do: add an average drift term, as well as potentially an additional parameter governing drift dynamics 
         log_state_delta = numpyro.sample( "log_state_delta", dist.Normal(0, 1), sample_shape=(n_states-1,))
         log_state_base = numpyro.deterministic("log_state_base", jnp.dot(contrasts_sdif_t, log_state_delta) * sigma + log_state_mean )
         return log_state_base
 
     def sample_downsampled_random_walk(contrasts_sdif_t, n_obs, n_states):
         log_state_base_downsampled = sample_random_walk(contrasts_sdif_t, n_states)
-        
-        idx_n_weight = jnp.array(range(0, n_obs))/downsampling_factor
-        idx_1 = jnp.array( jnp.floor(idx_n_weight), dtype=int)
-        idx_2 = jnp.array( jnp.ceil(idx_n_weight), dtype=int)
-        weight_2 = idx_n_weight - idx_1
-
-        state_before = log_state_base_downsampled[idx_1]
-        state_after = log_state_base_downsampled[idx_2]
-        return (1-weight_2)*state_before + weight_2*state_after
+        log_state_base = interpolate(log_state_base_downsampled, downsampling_factor, n_obs)
+        return log_state_base
         
     def sample_wday_effect(contrasts_wday, wday):
         # Prior for day-of-the-week effects (6 coefficients)
@@ -183,7 +310,7 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
 
         # Compute wday effect per observation (sum-to-zero constraint applied via contrasts)
         wday_effects = jnp.dot(contrasts_wday, wday_coefficients)
-        return jnp.array([wday_effects[d - 1] for d in wday]) # to-do: just use an index vector instead of a loop
+        return jnp.array(wday_effects[wday-1])
 
     def sample_yday_effect(contrasts_yday, yday_fraction):
         # Prior for yearly seasonality effects (12 coefficients)
@@ -192,8 +319,8 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
 
     def sample_price_effect(log_price_centered):
         # Prior for price elasticity
-        log_elasticity = numpyro.sample( "log_elasticity", dist.Normal(0, 1) )
-        elasticity = numpyro.deterministic( "elasticity", -1 * jnp.exp( log_elasticity ))
+        elasticity_pos = numpyro.sample( "elasticity_pos", dist.HalfNormal(5) )
+        elasticity = numpyro.deterministic("elasticity", -1 * elasticity_pos)
         return log_price_centered * elasticity
 
 
@@ -213,234 +340,207 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
     price_effect = sample_price_effect(log_price_centered)
 
     # Compute state
-    state = numpyro.deterministic("state", jnp.exp(log_state_base + price_effect + yday_effect + wday_effect))
+    state = numpyro.deterministic("state", jnp.exp( log_state_base  + yday_effect + wday_effect + price_effect )) #   # 
 
     # Compute log-likelihood for poisson emissions
-    numpyro.sample("sales", dist.Poisson(rate=state), obs=sales)
+    numpyro.sample("sales", dist.Poisson(rate=state), obs=sales) # to-do: create a Poisson distribution paramaterized by log-rate, as in the Stan manual 
 ```
 
-### 1.3 Model Fitting Logic
+## 2. Fit the Model 
 
-- Functions to fit the model
+We use the `run_nuts` function to fit the model to our sales data. The function leverages the No-U-Turn Sampler (NUTS) from the `numpyro` library to perform MCMC sampling.
+Because the model has a large number of latent parameters, initialization to sensible start values is key.
+
+
+### 2.1 Model Fitting Logic
+
+In order to fit the model, the functions below are used:
+
+1. `prepare_model_arguments`: Transforms the data into a format required by the model, including sales data, log-transformed prices, day-of-the-week values, and normalized day-of-the-year values.
+
+2. `init_values`: Finds sensible start values for the model parameters which, in this case is crucial for the convergence of the MCMC algorithm.
+
+2. `run_nuts`: Given a dataset, it calls the NUTS sampler to perform MCMC sampling.
 
 ```{code-cell} ipython3
-def prepare_model_arguments(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1):
+def init_values(sales: jnp.array, log_price_centered: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1):
+    """
+    """
+    epsilon = 0.001
+    log_state_est = jnp.log(sales + epsilon)
+    log_state_mean_est = jnp.mean(log_state_est)
+    log_state_delta_est = jnp.diff(log_state_est)
+    if downsampling_factor > 1:
+        log_state_delta_est = chunked_sum(log_state_delta_est, downsampling_factor)
+        
+    log_state_delta_sd_est = jnp.std(log_state_delta_est)
+
+    return {
+        "log_sigma": jnp.log( log_state_delta_sd_est ),
+        "log_state_mean": log_state_mean_est,
+        "log_state_delta": log_state_delta_est,
+        "wday_coefficients": jnp.array([0.0]*6),
+        "yday_coefficients": jnp.array([0.0]*12),
+        "log_elasticity": jnp.array([0.0])
+    }
+```
+
+```{code-cell} ipython3
+def prepare_model_arguments(sales: jnp.array, log_price: jnp.array, wday: jnp.array, yday_fraction: jnp.array, downsampling_factor = 1):
     """ 
+    Prepares the arguments required for the model.
+    
+    Args:
+        sales: Array of sales data.
+        log_price: Array of log-transformed prices.
+        wday: Array of day-of-the-week values.
+        yday_fraction: Array of normalized day-of-the-year values.
+        downsampling_factor: Factor by which to downsample the data.
+    
+    Returns:
+        A tuple containing initialized values for the model parameters and the model arguments.
     """    
     n_obs = len(sales)
+    
+    # Determine the number of states based on the downsampling factor
     if downsampling_factor == 1:
         n_states = n_obs
     else:
-        n_states = int( np.floor(n_obs/downsampling_factor) + 1 ) 
+        n_states = int(np.ceil(n_obs / downsampling_factor) + 1)
     
     # Define contrast matrix for random walk (T coefficients, sum-to-zero constraint)
     contrasts_sdif_t = patsy.contrasts.Diff().code_without_intercept(range(0, n_states)).matrix
 
     # Define contrast matrix for day-of-the-week effects (6 coefficients, sum-to-zero constraint)
-    contrasts_wday = patsy.contrasts.Diff().code_without_intercept(range(0,7)).matrix  # 7 days → 6 contrasts
+    contrasts_wday = patsy.contrasts.Diff().code_without_intercept(range(0, 7)).matrix  # 7 days → 6 contrasts
 
     # Compute yday effect per observation (sum-to-zero constraint applied via contrasts)
-    contrasts_yday = compute_doy_basis(yday_fraction, sigma = 30/365.25, n_centers = 12)
+    contrasts_yday = compute_doy_basis(yday_fraction, sigma=30/365.25, n_centers=12) # to-do: do a very approximate calibration of the RBF width parameter sigma, using something like a spline for the long term trend + RBF seasonality
 
     # Compute centered log price differences
     log_price_centered = log_price - jnp.mean(log_price)
 
     # Set up the model parameters
-    model_arguments = {'sales': sales, 'log_price_centered': log_price_centered, 'wday': wday, 'yday_fraction': yday_fraction,
-                       'downsampling_factor': downsampling_factor,
-                       'contrasts_sdif_t': contrasts_sdif_t, 'contrasts_wday': contrasts_wday, 'contrasts_yday': contrasts_yday}
+    model_arguments = {
+        'sales': sales,
+        'log_price_centered': log_price_centered,
+        'wday': jnp.array(wday, dtype=int),
+        'yday_fraction': yday_fraction,
+        'downsampling_factor': downsampling_factor,
+        'contrasts_sdif_t': contrasts_sdif_t,
+        'contrasts_wday': contrasts_wday,
+        'contrasts_yday': contrasts_yday
+    }
     
-    # Prepare init values for parameters 
-    init_params = init_values(sales, log_price_centered, wday, yday_fraction)
+    # Prepare initial values for parameters 
+    init_params = init_values(sales, log_price_centered, wday, yday_fraction, downsampling_factor)
 
     return init_params, model_arguments
 ```
 
 ```{code-cell} ipython3
-def run_svi(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.array, num_samples=1_000, num_steps=10_000):
-        """ """
-        rng_key = random.PRNGKey(seed=42)
-
-        n_obs = len(sales)
-        
-        # Prepare model arguments
-        init_params, model_arguments = prepare_model_arguments(sales, log_price, wday, yday_fraction)    
-
-        model = model_local_level_poisson
-        guide = AutoNormal(model=model) # AutoLaplaceApproximation(model=model) # AutoNormal(model=model) # guide = AutoMultivariateNormal(model=model)
-        optimizer = numpyro.optim.Adam(step_size=0.01)
-        svi = SVI(model, guide, optimizer, loss=Trace_ELBO())
-        rng_key, rng_subkey = random.split(key=rng_key)
-
-        svi_result = svi.run(rng_key = rng_subkey, num_steps = num_steps, **model_arguments, init_params = init_params)
-        params = svi_result.params
-
-        # get posterior samples (parameters)
-        rng_key, rng_subkey = random.split(key=rng_key)
-        predictive = Predictive(model=guide, params=params, num_samples=num_samples)
-        posterior_parameters = predictive(rng_subkey, **model_arguments)
-
-        # get posterior predictive (deterministics and likelihood)
-        rng_key, rng_subkey = random.split(key=rng_key)
-        predictive = Predictive(model=model, guide=guide, params=params, num_samples=num_samples)
-        posterior_generated = predictive(rng_subkey, **model_arguments)
-
-        return svi_result, posterior_parameters, posterior_generated
-```
-
-```{code-cell} ipython3
-def run_nuts(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1, n_chains = 1, num_warmup=1_000, num_samples=1_000):
+def run_nuts(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1, n_chains = 1, num_warmup=1_000, num_samples=1_000, step_size=0.01, max_tree_depth=8):
     """ Runs NUTS MCMC inference on the model 
     """
+    # Initialize random number generator key
     rng_key = random.PRNGKey(0)
     
+    # Get the number of observations
     n_obs = len(sales)
     
-    # Prepare model arguments
+    # Prepare model arguments and initial parameter values
     init_params, model_arguments = prepare_model_arguments(sales = sales, log_price = log_price, wday = wday, yday_fraction = yday_fraction, downsampling_factor = downsampling_factor)
 
+    # Split the random number generator key
     rng_key, rng_key_ = random.split(rng_key)
 
+    # Set the number of chains for parallel sampling
     numpyro.set_host_device_count(n_chains)
 
+    # Define the model to be used
     reparam_model = model_local_level_poisson
-    kernel = NUTS(reparam_model, step_size=0.01, max_tree_depth=8)
+    
+    # Initialize the NUTS kernel with the specified step size and tree depth
+    kernel = NUTS(reparam_model, step_size=step_size, max_tree_depth=max_tree_depth)
+    
+    # Initialize the MCMC sampler with the NUTS kernel
     mcmc = MCMC(kernel, num_warmup=num_warmup, num_samples=num_samples, num_chains=n_chains)
-    mcmc.run( rng_key_, **model_arguments #, init_params = init_params
-             )
+    
+    # Run the MCMC sampler
+    mcmc.run(rng_key_, **model_arguments) # disable init values: init_params=init_params
 
-    return mcmc
-    #samples = mcmc.get_samples()
-    #
-    #return {'log_state_base': jnp.mean(samples['log_state_base'], axis=0),
-    #        'state': jnp.mean(samples['state'], axis=0),
-    #        'mcmc': mcmc
-    #       }  
-  
+    # Return the fitted MCMC object
+    return mcmc, model_arguments
 ```
 
-## 2. Fit the Model 
+### 2.2 Fit the Model to the Synthetic Dataset
+- We fit the model to the synthetic dataset using the `run_nuts` function. The model is fitted using the No-U-Turn Sampler (NUTS) from the `numpyro` library, with 4 chains, 1,000 warmup iterations, and 1,000 sampling iterations. The step size is set to 0.01, and the maximum tree depth is 8. The fitted model is stored in the `m_fit` variable.
+- On CPU, the process takes about 2 minutes.
 
 ```{code-cell} ipython3
-
+# read in the synthetic sales data
 data = read_data("sales_synthetic.csv")
 ```
 
 ```{code-cell} ipython3
-m_fit = run_nuts(data['sales'], data['log_price'], data['wday'], data['yday_fraction'], downsampling_factor = 7, n_chains = 4, num_warmup=1_000, num_samples=1_000)
+# Fit the model using NumPyro NUTS MCMC
+m_fit, model_arguments = run_nuts(data['sales'], data['log_price'], data['wday'], data['yday_fraction'], 
+                                    downsampling_factor=7, n_chains=4, num_warmup=1_000, num_samples=1_000,
+                                    step_size=0.01, max_tree_depth=8)
+```
+
+### 2.3 Inspect the MCMC results
+
+All effective sample sizes are decent, which is a good sign. The Gelman-Rubin statistics are close to 1, indicating convergence. Inspection of trace plots are beyond the scope of this notebook.
+
+#### 2.3.1 Random Walk Component
+
+```{code-cell} ipython3
+# Let's look at the estimated random walk component of the model.
+az.summary(m_fit, var_names=["sigma", "log_state_delta"], filter_vars="like")
+```
+
+Here, we'll plot the estimated the random walk component, which also incorporates long term trends and growth or decline of sales. For present purposes, this is what amounts to irrelevant noise in the model.
+
+```{code-cell} ipython3
+# Create a sequence of dates starting at data["date"].min() the length of x['mean'], in steps of 7 days
+rw_states = az.summary(m_fit, var_names=["log_state_base"], filter_vars="like")["mean"].to_numpy()
+dates = pd.date_range(start = data["date"].min(), periods = len(rw_states), freq='7D')
+plot_function(dates, np.exp(rw_states), "Estimated Random Walk Component", "Date", "Sales") # to-do: add uncertainty bands
+```
+
+#### 2.3.2 Day of the Week Effects
+
+```{code-cell} ipython3
+coefs_wday = az.summary(m_fit, var_names=["wday_coefficients"], filter_vars="like")
+coefs_wday
+```
+
+Here, we'll plot the estimated weekly seasonality.
+
+```{code-cell} ipython3
+wday_effect = jnp.dot(model_arguments["contrasts_wday"], jnp.array(coefs_wday["mean"]))
+plot_function(range(1,8), wday_effect, "Effect of Day of the Week", "Date", "Sales") # to-do: add uncertainty bands
+```
+
+#### 2.3.3 Yearly Seasonality Effects
+
+```{code-cell} ipython3
+coefs_yday = az.summary(m_fit, var_names=["yday_coefficients"], filter_vars="like")
+coefs_yday
 ```
 
 ```{code-cell} ipython3
-
+yday_effect = jnp.dot(model_arguments["contrasts_yday"], jnp.array(coefs_yday["mean"]))
+plot_function(range(1,13), yday_effect, "Estimated Random Walk Component", "Date", "Sales") # to-do: add uncertainty bands
 ```
 
 ```{code-cell} ipython3
-summary = az.summary(m_fit)
+#### 2.3.4 Price Elasticity
 ```
 
 ```{code-cell} ipython3
-#import arviz as az
-#summary = az.summary(m['mcmc'])
-summary.loc[['sigma', 'elasticity']]
-```
-
-```{code-cell} ipython3
-summary
-```
-
-```{code-cell} ipython3
-az.summary(data=idata_parameters, var_names=["log_sigma", "log_price_coefficient", "yday_coefficients", "wday_coefficients"], round_to=3)
-```
-
-```{code-cell} ipython3
-import inspect
-print(inspect.getsource(m['mcmc'].print_summary))
-```
-
-```{code-cell} ipython3
-import jax
-from datetime import date
-rng_key = jax.random.key(int(date.today().strftime("%Y%m%d")))
-
-import numpy as np
-import jax.numpy as jnp
-from jax.scipy.stats import multivariate_normal
-```
-
-```{code-cell} ipython3
-import jax
-from datetime import date
-rng_key = jax.random.key(int(date.today().strftime("%Y%m%d")))
-```
-
-```{code-cell} ipython3
-import numpy as np
-import jax.numpy as jnp
-from jax.scipy.stats import multivariate_normal
-
-import blackjax
-import blackjax.smc.resampling as resampling
-from blackjax.smc import extend_params
-
-from numpyro.infer.util import initialize_model
-```
-
-```{code-cell} ipython3
-init_params, model_arguments = prepare_model_arguments(sales, log_price, wday, yday_fraction)    
-
-rng_key, init_key = jax.random.split(rng_key)
-init_params, potential_fn_gen, *_ = initialize_model(
-    init_key,
-    model_local_level_poisson,
-    model_kwargs=model_arguments,
-    dynamic_args=True,
-)
-```
-
-```{code-cell} ipython3
-logdensity_fn = lambda position: -potential_fn_gen(**model_arguments)(position)
-initial_position = init_params.z
-```
-
-```{code-cell} ipython3
-import blackjax
-
-num_warmup = 2000
-
-adapt = blackjax.window_adaptation(
-    blackjax.nuts, logdensity_fn, target_acceptance_rate=0.8
-)
-rng_key, warmup_key = jax.random.split(rng_key)
-(last_state, parameters), _ = adapt.run(warmup_key, initial_position, num_warmup)
-kernel = blackjax.nuts(logdensity_fn, **parameters).step
-```
-
-```{code-cell} ipython3
-def inference_loop(rng_key, kernel, initial_state, num_samples):
-    @jax.jit
-    def one_step(state, rng_key):
-        state, info = kernel(rng_key, state)
-        return state, (state, info)
-
-    keys = jax.random.split(rng_key, num_samples)
-    _, (states, infos) = jax.lax.scan(one_step, initial_state, keys)
-
-    return states, (
-        infos.acceptance_rate,
-        infos.is_divergent,
-        infos.num_integration_steps,
-    )
-```
-
-```{code-cell} ipython3
-num_sample = 1000
-rng_key, sample_key = jax.random.split(rng_key)
-states, infos = inference_loop(sample_key, kernel, last_state, num_sample)
-#_ = states.position["mu"].block_until_ready()
-```
-
-```{code-cell} ipython3
-states
+az.summary(m_fit, var_names=["elasticity"])
 ```
 
 ```{code-cell} ipython3
@@ -456,39 +556,7 @@ states
 ```
 
 ```{code-cell} ipython3
-svi_result, posterior_parameters, posterior_generated = run_svi(sales, log_price, wday, yday_fraction)
-```
 
-```{code-cell} ipython3
-idata_parameters = az.from_dict(
-     posterior = { k: np.expand_dims(a=np.asarray(v), axis=0) for k, v in posterior_parameters.items() },
- )
-idata_generated = az.from_dict(
-     posterior={ k: np.expand_dims(a=np.asarray(v), axis=0) for k, v in posterior_generated.items() },
- )
-```
-
-```{code-cell} ipython3
-#az.summary(data=idata_generated, var_names=["sigma"], round_to=3)
-az.summary(data=idata_parameters, var_names=["log_sigma", "log_price_coefficient", "yday_coefficients", "wday_coefficients"], round_to=3)
-```
-
-```{code-cell} ipython3
-az.summary(data=idata_generated, var_names=["state"], round_to=3)
-```
-
-```{code-cell} ipython3
-state = jnp.mean(posterior_generated['state'], axis=0).tolist()
-df = df.with_columns([ pl.Series("state", state) ])
-df
-```
-
-```{code-cell} ipython3
-
-```
-
-```{code-cell} ipython3
-posterior_generated
 ```
 
 ```{code-cell} ipython3
