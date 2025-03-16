@@ -1,15 +1,3 @@
----
-jupytext:
-  text_representation:
-    extension: .md
-    format_name: myst
-    format_version: 0.13
-    jupytext_version: 1.16.7
-kernelspec:
-  display_name: Python 3
-  language: python
-  name: python3
----
 
 ## Sales Forecasting with Bayesian Inference
 
@@ -19,11 +7,9 @@ This notebook demonstrates the use of Bayesian inference for sales forecasting u
 
 Bayesian inference allows us to incorporate prior knowledge and quantify uncertainty in our predictions. This notebook will guide you through the process of building a Bayesian model for sales forecasting, fitting the model using Markov Chain Monte Carlo (MCMC) and Stochastic Variational Inference (SVI), and visualizing the results.
 
-+++
-
 ## Import Required Libraries And Define Functions
 
-```{code-cell} ipython3
+```{code-cell}
 import os
 import sys
 
@@ -31,7 +17,7 @@ import sys
 os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=8"
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import polars as pl
 import pandas as pd
 import numpy as np
@@ -52,6 +38,10 @@ import arviz as az
 #jax.config.update("jax_enable_x64", True)  # Enable float64 by default
 ```
 
+    /home/pavel/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+
++++
+
 ## 1. Model
 
 In this section, we define the Bayesian model used for sales forecasting. The model incorporates various components such as random walk for the latent state, day-of-the-week effects, day-of-the-year effects, and price elasticity. The model is implemented using the `numpyro` library, which allows for efficient and scalable Bayesian inference.
@@ -65,7 +55,7 @@ These auxiliary functions are essential for data preprocessing and transformatio
 - `read_data`: Reads and preprocesses the sales data from a CSV file.
 - `init_values`: Initializes values for the model parameters.
 
-```{code-cell} ipython3
+```{code-cell}
 # Define a periodic Gaussian radial basis function (RBF)
 def periodic_rbf(x, mu, sigma):
     """
@@ -181,7 +171,7 @@ def chunked_sum(x, n_chunk):
     return x_padded.reshape(-1, n_chunk).sum(axis=1)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 # Creates a simple plot using plotnine
 def plot_function(x, y, title, xlab, ylab):
     # Convert x to numpy array
@@ -212,6 +202,7 @@ def plot_function(x, y, title, xlab, ylab):
 - **Price elasticity** is explicitly modeled, ensuring sensitivity to pricing dynamics.
 - The model is implemented in numpyro, enabling scalable Bayesian inference.
 
++++
 
 #### 1.2.1 Model Overview
 
@@ -236,6 +227,7 @@ $$
 \mu_\tau \sim \text{Exponential}(1), \quad \sigma_\tau \sim \mathcal{N}(1)
 $$
 
++++
 
 ##### 1.2.1.2 Structured Effects
 
@@ -247,6 +239,7 @@ We further accounted for systematic effects of *(i)* day of the week, *(ii)* day
 
 Similarly, the day-of-the-year effects are modeled using a seasonality basis matrix $\mathbf{B}_{\text{yday}}$, which represents periodic seasonal patterns using Gaussian radial basis functions (RBFs).
 
++++
 
 - **Day-of-the-week effects**:
 
@@ -272,6 +265,7 @@ $$
   z_t = zw_t + zy_t + ze_t
 $$
 
++++
 
 ##### 1.2.1.3 Emissions Model
 
@@ -281,7 +275,8 @@ $$
 S_t \sim \text{Poisson}(\lambda_t)
 $$
 
-```{code-cell} ipython3
+
+```{code-cell}
 def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, wday: jnp.array, yday_fraction: jnp.array, 
                               contrasts_sdif_t: jnp.array, contrasts_wday: jnp.array, contrasts_yday: jnp.array, 
                               downsampling_factor = 1):
@@ -351,6 +346,7 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
 We use the `run_nuts` function to fit the model to our sales data. The function leverages the No-U-Turn Sampler (NUTS) from the `numpyro` library to perform MCMC sampling.
 Because the model has a large number of latent parameters, initialization to sensible start values is key.
 
++++
 
 ### 2.1 Model Fitting Logic
 
@@ -362,7 +358,7 @@ In order to fit the model, the functions below are used:
 
 2. `run_nuts`: Given a dataset, it calls the NUTS sampler to perform MCMC sampling.
 
-```{code-cell} ipython3
+```{code-cell}
 def init_values(sales: jnp.array, log_price_centered: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1):
     """
     """
@@ -385,7 +381,7 @@ def init_values(sales: jnp.array, log_price_centered: jnp.array, wday, yday_frac
     }
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 def prepare_model_arguments(sales: jnp.array, log_price: jnp.array, wday: jnp.array, yday_fraction: jnp.array, downsampling_factor = 1):
     """ 
     Prepares the arguments required for the model.
@@ -438,7 +434,7 @@ def prepare_model_arguments(sales: jnp.array, log_price: jnp.array, wday: jnp.ar
     return init_params, model_arguments
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 def run_nuts(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1, n_chains = 1, num_warmup=1_000, num_samples=1_000, step_size=0.01, max_tree_depth=8):
     """ Runs NUTS MCMC inference on the model 
     """
@@ -477,17 +473,36 @@ def run_nuts(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.ar
 - We fit the model to the synthetic dataset using the `run_nuts` function. The model is fitted using the No-U-Turn Sampler (NUTS) from the `numpyro` library, with 4 chains, 1,000 warmup iterations, and 1,000 sampling iterations. The step size is set to 0.01, and the maximum tree depth is 8. The fitted model is stored in the `m_fit` variable.
 - On CPU, the process takes about 2 minutes.
 
-```{code-cell} ipython3
+```{code-cell}
 # read in the synthetic sales data
 data = read_data("sales_synthetic.csv")
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 # Fit the model using NumPyro NUTS MCMC
 m_fit, model_arguments = run_nuts(data['sales'], data['log_price'], data['wday'], data['yday_fraction'], 
                                     downsampling_factor=7, n_chains=4, num_warmup=1_000, num_samples=1_000,
                                     step_size=0.01, max_tree_depth=8)
 ```
+
+    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
+
+
+
+      0%|          | 0/2000 [00:00<?, ?it/s]
+
+
+
+      0%|          | 0/2000 [00:00<?, ?it/s]
+
+
+
+      0%|          | 0/2000 [00:00<?, ?it/s]
+
+
+
+      0%|          | 0/2000 [00:00<?, ?it/s]
+
 
 ### 2.3 Inspect the MCMC results
 
@@ -495,75 +510,638 @@ All effective sample sizes are decent, which is a good sign. The Gelman-Rubin st
 
 #### 2.3.1 Random Walk Component
 
-```{code-cell} ipython3
+```{code-cell}
 # Let's look at the estimated random walk component of the model.
 az.summary(m_fit, var_names=["sigma", "log_state_delta"], filter_vars="like")
 ```
 
+
+
++++
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mean</th>
+      <th>sd</th>
+      <th>hdi_3%</th>
+      <th>hdi_97%</th>
+      <th>mcse_mean</th>
+      <th>mcse_sd</th>
+      <th>ess_bulk</th>
+      <th>ess_tail</th>
+      <th>r_hat</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>log_sigma</th>
+      <td>-2.823</td>
+      <td>0.104</td>
+      <td>-3.016</td>
+      <td>-2.634</td>
+      <td>0.003</td>
+      <td>0.002</td>
+      <td>1122.0</td>
+      <td>2413.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[0]</th>
+      <td>0.318</td>
+      <td>0.943</td>
+      <td>-1.389</td>
+      <td>2.129</td>
+      <td>0.016</td>
+      <td>0.014</td>
+      <td>3278.0</td>
+      <td>2661.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[1]</th>
+      <td>0.296</td>
+      <td>0.892</td>
+      <td>-1.344</td>
+      <td>1.987</td>
+      <td>0.016</td>
+      <td>0.015</td>
+      <td>3255.0</td>
+      <td>2471.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[2]</th>
+      <td>0.197</td>
+      <td>0.907</td>
+      <td>-1.465</td>
+      <td>1.887</td>
+      <td>0.016</td>
+      <td>0.013</td>
+      <td>3033.0</td>
+      <td>2899.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[3]</th>
+      <td>-0.510</td>
+      <td>0.901</td>
+      <td>-2.138</td>
+      <td>1.231</td>
+      <td>0.017</td>
+      <td>0.014</td>
+      <td>2832.0</td>
+      <td>2800.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[194]</th>
+      <td>0.577</td>
+      <td>0.648</td>
+      <td>-0.715</td>
+      <td>1.738</td>
+      <td>0.013</td>
+      <td>0.009</td>
+      <td>2512.0</td>
+      <td>2770.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[195]</th>
+      <td>-0.733</td>
+      <td>0.668</td>
+      <td>-1.988</td>
+      <td>0.508</td>
+      <td>0.014</td>
+      <td>0.009</td>
+      <td>2428.0</td>
+      <td>2691.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[196]</th>
+      <td>-0.666</td>
+      <td>0.650</td>
+      <td>-1.979</td>
+      <td>0.462</td>
+      <td>0.012</td>
+      <td>0.009</td>
+      <td>2785.0</td>
+      <td>2337.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>log_state_delta[197]</th>
+      <td>-0.577</td>
+      <td>0.840</td>
+      <td>-2.192</td>
+      <td>0.963</td>
+      <td>0.014</td>
+      <td>0.013</td>
+      <td>3504.0</td>
+      <td>3042.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>sigma</th>
+      <td>0.060</td>
+      <td>0.006</td>
+      <td>0.048</td>
+      <td>0.071</td>
+      <td>0.000</td>
+      <td>0.000</td>
+      <td>1122.0</td>
+      <td>2413.0</td>
+      <td>1.0</td>
+    </tr>
+  </tbody>
+</table>
+<p>200 rows × 9 columns</p>
+</div>
+
++++
+
 Here, we'll plot the estimated the random walk component, which also incorporates long term trends and growth or decline of sales. For present purposes, this is what amounts to irrelevant noise in the model.
 
-```{code-cell} ipython3
+```{code-cell}
 # Create a sequence of dates starting at data["date"].min() the length of x['mean'], in steps of 7 days
 rw_states = az.summary(m_fit, var_names=["log_state_base"], filter_vars="like")["mean"].to_numpy()
 dates = pd.date_range(start = data["date"].min(), periods = len(rw_states), freq='7D')
 plot_function(dates, np.exp(rw_states), "Estimated Random Walk Component", "Date", "Sales") # to-do: add uncertainty bands
 ```
 
+    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
+
+
++++
+
+![png](ts_2_analysis_files/ts_2_analysis_19_1.png)
+    
+
++++
+
 #### 2.3.2 Day of the Week Effects
 
-```{code-cell} ipython3
+```{code-cell}
 coefs_wday = az.summary(m_fit, var_names=["wday_coefficients"], filter_vars="like")
 coefs_wday
 ```
 
+    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
+
+
+
++++
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mean</th>
+      <th>sd</th>
+      <th>hdi_3%</th>
+      <th>hdi_97%</th>
+      <th>mcse_mean</th>
+      <th>mcse_sd</th>
+      <th>ess_bulk</th>
+      <th>ess_tail</th>
+      <th>r_hat</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>wday_coefficients[0]</th>
+      <td>-0.022</td>
+      <td>0.012</td>
+      <td>-0.046</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>3461.0</td>
+      <td>2405.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>wday_coefficients[1]</th>
+      <td>-0.103</td>
+      <td>0.012</td>
+      <td>-0.127</td>
+      <td>-0.080</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>2395.0</td>
+      <td>3019.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>wday_coefficients[2]</th>
+      <td>-0.062</td>
+      <td>0.013</td>
+      <td>-0.086</td>
+      <td>-0.038</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>2662.0</td>
+      <td>2699.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>wday_coefficients[3]</th>
+      <td>0.000</td>
+      <td>0.013</td>
+      <td>-0.024</td>
+      <td>0.025</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>2480.0</td>
+      <td>2377.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>wday_coefficients[4]</th>
+      <td>0.078</td>
+      <td>0.012</td>
+      <td>0.053</td>
+      <td>0.100</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>2509.0</td>
+      <td>2922.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <th>wday_coefficients[5]</th>
+      <td>0.067</td>
+      <td>0.012</td>
+      <td>0.045</td>
+      <td>0.090</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>3248.0</td>
+      <td>2802.0</td>
+      <td>1.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
++++
+
 Here, we'll plot the estimated weekly seasonality.
 
-```{code-cell} ipython3
+```{code-cell}
 wday_effect = jnp.dot(model_arguments["contrasts_wday"], jnp.array(coefs_wday["mean"]))
-plot_function(range(1,8), wday_effect, "Effect of Day of the Week", "Date", "Sales") # to-do: add uncertainty bands
+plot_function(range(0,7), wday_effect, "Effect of Day of the Week", "Date", "Sales") # to-do: add uncertainty bands
 ```
+
+
+
++++
+
+![png](ts_2_analysis_files/ts_2_analysis_23_0.png)
+    
+
++++
 
 #### 2.3.3 Yearly Seasonality Effects
 
-```{code-cell} ipython3
+```{code-cell}
 coefs_yday = az.summary(m_fit, var_names=["yday_coefficients"], filter_vars="like")
 coefs_yday
 ```
 
-```{code-cell} ipython3
+    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
+
+
+
++++
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mean</th>
+      <th>sd</th>
+      <th>hdi_3%</th>
+      <th>hdi_97%</th>
+      <th>mcse_mean</th>
+      <th>mcse_sd</th>
+      <th>ess_bulk</th>
+      <th>ess_tail</th>
+      <th>r_hat</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>yday_coefficients[0]</th>
+      <td>-0.086</td>
+      <td>0.366</td>
+      <td>-0.770</td>
+      <td>0.606</td>
+      <td>0.017</td>
+      <td>0.008</td>
+      <td>453.0</td>
+      <td>889.0</td>
+      <td>1.01</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[1]</th>
+      <td>-0.074</td>
+      <td>0.376</td>
+      <td>-0.786</td>
+      <td>0.620</td>
+      <td>0.018</td>
+      <td>0.008</td>
+      <td>459.0</td>
+      <td>1127.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[2]</th>
+      <td>-0.053</td>
+      <td>0.372</td>
+      <td>-0.797</td>
+      <td>0.600</td>
+      <td>0.018</td>
+      <td>0.009</td>
+      <td>449.0</td>
+      <td>774.0</td>
+      <td>1.01</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[3]</th>
+      <td>-0.043</td>
+      <td>0.384</td>
+      <td>-0.764</td>
+      <td>0.667</td>
+      <td>0.018</td>
+      <td>0.008</td>
+      <td>468.0</td>
+      <td>1283.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[4]</th>
+      <td>0.137</td>
+      <td>0.370</td>
+      <td>-0.578</td>
+      <td>0.797</td>
+      <td>0.018</td>
+      <td>0.009</td>
+      <td>446.0</td>
+      <td>808.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[5]</th>
+      <td>-0.121</td>
+      <td>0.375</td>
+      <td>-0.854</td>
+      <td>0.571</td>
+      <td>0.018</td>
+      <td>0.009</td>
+      <td>458.0</td>
+      <td>1064.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[6]</th>
+      <td>0.215</td>
+      <td>0.372</td>
+      <td>-0.442</td>
+      <td>0.985</td>
+      <td>0.018</td>
+      <td>0.009</td>
+      <td>431.0</td>
+      <td>854.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[7]</th>
+      <td>-0.054</td>
+      <td>0.366</td>
+      <td>-0.736</td>
+      <td>0.665</td>
+      <td>0.017</td>
+      <td>0.009</td>
+      <td>451.0</td>
+      <td>931.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[8]</th>
+      <td>0.096</td>
+      <td>0.372</td>
+      <td>-0.656</td>
+      <td>0.744</td>
+      <td>0.017</td>
+      <td>0.009</td>
+      <td>457.0</td>
+      <td>887.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[9]</th>
+      <td>-0.123</td>
+      <td>0.369</td>
+      <td>-0.810</td>
+      <td>0.593</td>
+      <td>0.018</td>
+      <td>0.010</td>
+      <td>443.0</td>
+      <td>914.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[10]</th>
+      <td>-0.058</td>
+      <td>0.366</td>
+      <td>-0.783</td>
+      <td>0.609</td>
+      <td>0.017</td>
+      <td>0.009</td>
+      <td>456.0</td>
+      <td>890.0</td>
+      <td>1.00</td>
+    </tr>
+    <tr>
+      <th>yday_coefficients[11]</th>
+      <td>-0.119</td>
+      <td>0.369</td>
+      <td>-0.879</td>
+      <td>0.527</td>
+      <td>0.018</td>
+      <td>0.010</td>
+      <td>439.0</td>
+      <td>938.0</td>
+      <td>1.00</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+```{code-cell}
 yday_effect = jnp.dot(model_arguments["contrasts_yday"], jnp.array(coefs_yday["mean"]))
-plot_function(range(1,13), yday_effect, "Estimated Random Walk Component", "Date", "Sales") # to-do: add uncertainty bands
+plot_function(data["date"], yday_effect, "Yearly Seasonality", "Date", "Sales") # to-do: add uncertainty bands
 ```
 
-```{code-cell} ipython3
+
+
++++
+
+![png](ts_2_analysis_files/ts_2_analysis_26_0.png)
+    
+
++++
+
 #### 2.3.4 Price Elasticity
-```
 
-```{code-cell} ipython3
+```{code-cell}
 az.summary(m_fit, var_names=["elasticity"])
 ```
 
-```{code-cell} ipython3
+    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
+
+
+
++++
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mean</th>
+      <th>sd</th>
+      <th>hdi_3%</th>
+      <th>hdi_97%</th>
+      <th>mcse_mean</th>
+      <th>mcse_sd</th>
+      <th>ess_bulk</th>
+      <th>ess_tail</th>
+      <th>r_hat</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>elasticity</th>
+      <td>-1.267</td>
+      <td>0.334</td>
+      <td>-1.877</td>
+      <td>-0.629</td>
+      <td>0.008</td>
+      <td>0.005</td>
+      <td>1638.0</td>
+      <td>1600.0</td>
+      <td>1.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+```{code-cell}
 
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```
 
-```{code-cell} ipython3
-x = pd.DataFrame({ 'date': df["date"].to_numpy(), 'sales': df["sales"].to_numpy(), 'state': m['state'] })
-ggplot(x, aes(x='date', y='sales')) + geom_point() + geom_line(aes(y='state'), color = "red") + theme_bw()
+```{code-cell}
+
 ```
+
+    ---------------------------------------------------------------------------
+
+    NameError                                 Traceback (most recent call last)
+
+    Cell In[1], line 1
+    ----> 1 x = pd.DataFrame({ 'date': df["date"].to_numpy(), 'sales': df["sales"].to_numpy(), 'state': m['state'] })
+          2 ggplot(x, aes(x='date', y='sales')) + geom_point() + geom_line(aes(y='state'), color = "red") + theme_bw()
+
+
+    NameError: name 'pd' is not defined
