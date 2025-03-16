@@ -1,31 +1,23 @@
----
-editor_options: 
-  markdown: 
-    wrap: sentence
----
 
 # Generating Synthetic Order Volume
 
 ## Introduction
 
-Understanding real-world sales patterns often requires modeling specific aspects of the data which can be obscured by factors that are of no theoretical interest.
-For instance, the effects of price sensitivity may be obscured by seasonal patterns, seasonal patterns may be partially obscured by one-off events, effects of consumer confidence, or by long-term trends, among others.
-By constructing a synthetic dataset with well-defined components, we can test whether a model can effectively recover these hidden relationshop.
+Understanding real-world sales patterns often requires modeling specific aspects of the data which can be obscured by factors that are of no theoretical interest. For instance, the effects of price sensitivity may be obscured by seasonal patterns, seasonal patterns may be partially obscured by one-off events, effects of consumer confidence, or by long-term trends, among others. By constructing a synthetic dataset with well-defined components, we can test whether a model can effectively recover these hidden relationshop.
 
-This notebook creates synthetic sales data for an online store and explains the logic behind its generation.
-The goal is to simulate a realistic sales time series incorporating latent seasonality (both weekly and yearly), latent growth over time, as well as influences of unmodeled factors via a random walk.
+This notebook creates synthetic sales data for an online store and explains the logic behind its generation. The goal is to simulate a realistic sales time series incorporating latent seasonality (both weekly and yearly), latent growth over time, as well as influences of unmodeled factors via a random walk.
 The generated data can be used for testing time series models that aim to uncover some of these latent structures.
 
 Key aspects of our data:
 
--   **Latent Growth.** Sales increase gradually, accelerating after a certain point, and then saturate.
--   **Yearly Seasonality.** Sales vary throughout the year, with a peak during certain periods (e.g., summer or holiday seasons).
--   **Weekly Seasonality.** A periodic pattern emerges within each week (e.g., higher sales on weekends).
--   **Random Walk Noise.** Unmodeled variations and external shocks are captured through a random walk process, ensuring realistic fluctuations.
+- **Latent Growth.** Sales increase gradually, accelerating after a certain point, and then saturate.
+- **Yearly Seasonality.** Sales vary throughout the year, with a peak during certain periods (e.g., summer or holiday seasons).
+- **Weekly Seasonality.** A periodic pattern emerges within each week (e.g., higher sales on weekends).
+- **Random Walk Noise.** Unmodeled variations and external shocks are captured through a random walk process, ensuring realistic fluctuations.
 
 ## 1. Import Required Libraries And Define Functions
 
-```{code-cell}
+```{code-cell}  hidden=true
 import polars as pl
 import numpy as np
 import pandas as pd
@@ -55,17 +47,13 @@ def plot_function(x, y, title, xlab, ylab):
 
 ## 2. Data Generation Process
 
-In the initial steps, we will create a number of independent components that contribute to the price independently.
-In principle, the way to interpret them is 'this is what sales would look like over the time frame considered is all else remained equal'.
+In the initial steps, we will create a number of independent components that contribute to the price independently. In principle, the way to interpret them is 'this is what sales would look like over the time frame considered is all else remained equal'.
 
 ### 2.1. Create the Time Series
 
-A daily time series is generated starting from June 1, 2021, up to the present day.
-This ensures sufficient data points to analyze trends and seasonality.
+A daily time series is generated starting from June 1, 2021, up to the present day. This ensures sufficient data points to analyze trends and seasonality.
 
 ```{code-cell}
-:tags: [hide-cell]
-
 # set the random seed
 np.random.seed(42)
 
@@ -80,15 +68,15 @@ days_since_start = np.arange(len(date_range))
 
 ### 2.2. Long-Term Growth Curve
 
-Long-term sales growth is modeled as a modified logistic function, representing an initial slow growth phase, followed by acceleration, and eventual saturation.
-This function ensures that sales begin near zero, increase slowly at first, then accelerate before stabilizing.
+Long-term sales growth is modeled as a modified logistic function, representing an initial slow growth phase, followed by acceleration, and eventual saturation. This function ensures that sales begin near zero, increase slowly at first, then accelerate before stabilizing.
 
-\$ f(t) = L \cdot (1 + exp(-k \cdot (t - t_0)))\^{(-1/v)} \$
+$ f(t)  = L \cdot (1 + exp(-k \cdot (t - t_0)))^{(-1/v)} $
 
-Parameters: - **L.** Upper bound on sales (saturation level).
+Parameters:
+- **L.** Upper bound on sales (saturation level).
 - **k.** Growth rate.
 - **x_0.** Inflection point (where acceleration peaks).
-- **v.** Asymmetry parameter (v \< 1 slower growth to the right of **x0**, 0 \< v \< 1 slower growth to the left of **x0**)
+- **v.** Asymmetry parameter (v < 1 slower growth to the right of **x0**, 0 < v < 1 slower growth to the left of **x0**)
 
 ```{code-cell}
 # Logistic function parameters
@@ -104,21 +92,19 @@ growth = growth_fn(days_since_start)
 plot_function(x=date_range, y=growth, title="Logistic Growth Over Time", xlab="Days Since Start", ylab="Sales Factor")
 ```
 
-```         
-/home/pavel/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
-```
+    /home/pavel/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+
 
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_7_1.png)
+    
 
 +++
 
 ### 2.3. Yearly Seasonal Pattern
 
-Yearly seasonality is introduced using a scaled cosine transformations of the day of the year.
-This captures periodic effects such as, in this case, increased summer sales.
-This function is scaled to oscillate between 0.8 and 1.2 over the course of a year, which, when multiplied with the average sales function futher down will decrease winter sales by up to $20\%$, and increase summer sales by up to $20\%$.
+Yearly seasonality is introduced using a scaled cosine transformations of the day of the year. This captures periodic effects such as, in this case, increased summer sales. This function is scaled to oscillate between 0.8 and 1.2 over the course of a year, which, when multiplied with the average sales function futher down will decrease winter sales by up to $20\%$, and increase summer sales by up to $20\%$.
 
 ```{code-cell}
 # Yearly seasonality
@@ -130,17 +116,18 @@ yearly_seasonality = yearly_seasonality_fn(date_range.day_of_year)
 plot_function(x=range(0,366), y=yearly_seasonality_fn, title="Yearly Seasonality", xlab="Day of the Year", ylab="Sales Factor")
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_10_0.png)
+    
 
 +++
 
 ### 2.4. Weekly Seasonal Pattern
 
-Weekly seasonality is also modeled a scaled cosine transformations of the day of the week.
-In this case, we model a drop in sales, primarily on Thursday-Friday.
-This function is scaled to oscillate between 0.9 and 1.1 over the course of the week, which, when multiplied with the average sales function futher will change sales by $\pm 10\%$.
+Weekly seasonality is also modeled a scaled cosine transformations of the day of the week. In this case, we model a drop in sales, primarily on Thursday-Friday. This function is scaled to oscillate between 0.9 and 1.1 over the course of the week, which, when multiplied with the average sales function futher will change sales by $\pm 10\%$.
 
 ```{code-cell}
 # Weekly seasonality
@@ -152,9 +139,12 @@ weekly_seasonality = weekly_seasonality_fn(date_range.weekday)
 plot_function(x=range(1,8), y=weekly_seasonality_fn, title="Weekly Seasonality", xlab="Day of the Week", ylab="Sales Factor") 
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_13_0.png)
+    
 
 +++
 
@@ -166,20 +156,18 @@ breaks = [pd.Timestamp(d) for d in ["2017-01-01", "2019-01-01", "2021-01-01", "2
 plot_function(x=date_range, y=sales, title="Growth + Seasonality", xlab="Date", ylab="Sales Factor") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_15_0.png)
+    
 
 +++
 
 ### 2.6. Random Walk: Unmodeled Influences and External Shocks
 
-A random walk is used to simulate external influences and unpredictable variations.
-This component accounts for factors not explicitly modeled, such as promotions, economic shifts, or changes in popularity, or influences of competitors.
-The random walk is centered (mean zero) to ensure it does not systematically bias the trend.
-This ensures that the long-term sales trajectory remains driven by the logistic growth component rather than arbitrary drift.
-This does not amount to any sort of assumption about the data-generating process in a more realistic scenario.
-This is done strictly to maintain interpretability in the bringing together of the different parts of the synthetic demand.
+A random walk is used to simulate external influences and unpredictable variations. This component accounts for factors not explicitly modeled, such as promotions, economic shifts, or changes in popularity, or influences of competitors. The random walk is centered (mean zero) to ensure it does not systematically bias the trend. This ensures that the long-term sales trajectory remains driven by the logistic growth component rather than arbitrary drift. This does not amount to any sort of assumption about the data-generating process in a more realistic scenario. This is done strictly to maintain interpretability in the bringing together of the different parts of the synthetic demand.
 
 ```{code-cell}
 np.random.seed(441)
@@ -190,9 +178,12 @@ centered_random_walk = random_walk - np.mean(random_walk)
 plot_function(x=date_range, y = centered_random_walk, title="Random Walk Component", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_17_0.png)
+    
 
 +++
 
@@ -203,28 +194,32 @@ growth_plus_rw = np.exp( np.log(growth) + centered_random_walk)
 plot_function(x=date_range, y = growth_plus_rw, title="Growth + Random Walk Component", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_19_0.png)
+    
 
 +++
 
-The random walk is combined with the sales pattern created so far in log-space in order to ensure that the effects are multiplicative.
-This aligns with real-world sales data, where sales fluctuations are typically proportional rather than absolute.
-This is also a simple way of preventing sales from dropping below 0.
+The random walk is combined with the sales pattern created so far in log-space in order to ensure that the effects are multiplicative. This aligns with real-world sales data, where sales fluctuations are typically proportional rather than absolute. This is also a simple way of preventing sales from dropping below 0.
 
 ```{code-cell}
 sales_with_random_component = np.exp( np.log(sales) + centered_random_walk)
 plot_function(x=date_range, y = sales_with_random_component, title="Growth + Seasonality + Random Walk", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_21_0.png)
+    
 
 +++
 
-### 2.7. Effect of Price
+### 2.7. Effect of Price 
 
 ```{code-cell}
 def sample_log_price_change(n, p, min_delta, max_delta):
@@ -251,9 +246,13 @@ delta_log_price[1200] = .05
 plot_function(x=date_range, y = np.cumsum(delta_log_price), title="Difference in log price to baseline", xlab="Date", ylab="Δ log(price)") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_24_0.png)
+    
+
 
 ```{code-cell}
 price_base = 20
@@ -262,9 +261,13 @@ log_price = np.log(price_base) + np.cumsum(delta_log_price)
 plot_function(x=date_range, y = np.exp( log_price ), title="Product Price", xlab="Date", ylab="Price") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_25_0.png)
+    
+
 
 ```{code-cell}
 elasticity = -1.2
@@ -272,15 +275,18 @@ sales_with_price_effect = np.exp( np.log(sales_with_random_component) + elastici
 plot_function(x=date_range, y = sales_with_price_effect, title="Weekly Seasonality", xlab="Day of the Week", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_26_0.png)
+    
 
 +++
 
 ### 2.8. Scaled Sales
 
-At this point, we scale the expected sales to a more realistic range for actual sales.
+At this point, we scale the expected sales to a more realistic range for actual sales. 
 
 ```{code-cell}
 max_sales = 200 # scale the sales to a more realistic range
@@ -289,35 +295,36 @@ sales_scaled = max_sales * sales_with_price_effect / sales_with_price_effect.max
 plot_function(x=date_range, y = sales_scaled, title="Weekly Seasonality", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_28_0.png)
+    
 
 +++
 
 ## 3. Realized Sales
 
-What we constructed until now are the expected sales $\lambda$ for each day.
-We realize them for each day $i$ by drawing them from a Poisson distribution with parameter $\lambda_i$.
-This approach ensures that while the underlying sales structure is generated smoothly, the final dataset exhibits realistic integer sales values with appropriate stochastic variation.
+What we constructed until now are the expected sales $\lambda$ for each day. We realize them for each day $i$ by drawing them from a Poisson distribution with parameter $\lambda_i$. This approach ensures that while the underlying sales structure is generated smoothly, the final dataset exhibits realistic integer sales values with appropriate stochastic variation.
 
 ```{code-cell}
 sales_realized = np.random.poisson(lam=sales_scaled)
 plot_function(x=date_range, y = sales_realized, title="Weekly Seasonality", xlab="Date", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 ```
 
+
+
 +++
 
 ![png](ts_1_synthetic_data_files/ts_1_synthetic_data_30_0.png)
+    
 
 +++
 
 ## 4. Sanity-Check
 
-Here, we check that the composition of the sales time series is as expected.
-We'll estimate regression coefficients for all the components.
-All should be 1, with the exception of the effect of price, which should equal the specified elastictiy.
-Please note though, that although all components are additive in log-space, their contributions are not equal, since they are scaled differently.
+Here, we check that the composition of the sales time series is as expected. We'll estimate regression coefficients for all the components. All should be 1, with the exception of the effect of price, which should equal the specified elastictiy. Please note though, that although all components are additive in log-space, their contributions are not equal, since they are scaled differently.
 
 ```{code-cell}
 import statsmodels.api as sm
@@ -337,9 +344,63 @@ poisson_model = sm.GLM(y, X, family=sm.families.Poisson()).fit()
 poisson_model.summary()
 ```
 
+
+
 +++
 
-31b8e172-b470-440e-83d8-e6b185028602:dAB5AHAAZQA6AE8AQQBCAGwAQQBHAFkAQQBOAFEAQgBoAEEARABjAEEATgB3AEEAeQBBAEMAMABBAFoAQQBCAGsAQQBEAFkAQQBNAHcAQQB0AEEARABRAEEATgBnAEEAeQBBAEQASQBBAEwAUQBBADQAQQBEAFEAQQBZAGcAQgBtAEEAQwAwAEEAWQBRAEIAbQBBAEQARQBBAE8AUQBBADUAQQBEAFUAQQBZAFEAQQB4AEEARwBJAEEATQBnAEIAaQBBAEQAawBBAAoAcABvAHMAaQB0AGkAbwBuADoATQBRAEEAeQBBAEQAawBBAE4AdwBBAHcAQQBBAD0APQAKAHAAcgBlAGYAaQB4ADoACgBzAG8AdQByAGMAZQA6AFAAQQBCADAAQQBHAEUAQQBZAGcAQgBzAEEARwBVAEEASQBBAEIAagBBAEcAdwBBAFkAUQBCAHoAQQBIAE0AQQBQAFEAQQBpAEEASABNAEEAYQBRAEIAdABBAEgAQQBBAGIAQQBCAGwAQQBIAFEAQQBZAFEAQgBpAEEARwB3AEEAWgBRAEEAaQBBAEQANABBAEMAZwBBADgAQQBHAE0AQQBZAFEAQgB3AEEASABRAEEAYQBRAEIAdgBBAEcANABBAFAAZwBCAEgAQQBHAFUAQQBiAGcAQgBsAEEASABJAEEAWQBRAEIAcwBBAEcAawBBAGUAZwBCAGwAQQBHAFEAQQBJAEEAQgBNAEEARwBrAEEAYgBnAEIAbABBAEcARQBBAGMAZwBBAGcAQQBFADAAQQBiAHcAQgBrAEEARwBVAEEAYgBBAEEAZwBBAEYASQBBAFoAUQBCAG4AQQBIAEkAQQBaAFEAQgB6AEEASABNAEEAYQBRAEIAdgBBAEcANABBAEkAQQBCAFMAQQBHAFUAQQBjAHcAQgAxAEEARwB3AEEAZABBAEIAegBBAEQAdwBBAEwAdwBCAGoAQQBHAEUAQQBjAEEAQgAwAEEARwBrAEEAYgB3AEIAdQBBAEQANABBAEMAZwBBADgAQQBIAFEAQQBjAGcAQQArAEEAQQBvAEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAG8AQQBEADQAQQBSAEEAQgBsAEEASABBAEEATABnAEEAZwBBAEYAWQBBAFkAUQBCAHkAQQBHAGsAQQBZAFEAQgBpAEEARwB3AEEAWgBRAEEANgBBAEQAdwBBAEwAdwBCADAAQQBHAGcAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBCADUAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEAUABBAEIAMABBAEcAZwBBAFAAZwBBAGcAQQBDAEEAQQBUAGcAQgB2AEEAQwA0AEEASQBBAEIAUABBAEcASQBBAGMAdwBCAGwAQQBIAEkAQQBkAGcAQgBoAEEASABRAEEAYQBRAEIAdgBBAEcANABBAGMAdwBBADYAQQBDAEEAQQBJAEEAQQA4AEEAQwA4AEEAZABBAEIAbwBBAEQANABBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAZwBBAEQARQBBAE0AdwBBADQAQQBEAFUAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAEMAZwBBADgAQQBDADgAQQBkAEEAQgB5AEEARAA0AEEAQwBnAEEAOABBAEgAUQBBAGMAZwBBACsAQQBBAG8AQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAFQAUQBCAHYAQQBHAFEAQQBaAFEAQgBzAEEARABvAEEAUABBAEEAdgBBAEgAUQBBAGEAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBrAEEARAA0AEEAUgB3AEIATQBBAEUAMABBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBQAEEAQgAwAEEARwBnAEEAUABnAEEAZwBBAEMAQQBBAFIAQQBCAG0AQQBDAEEAQQBVAGcAQgBsAEEASABNAEEAYQBRAEIAawBBAEgAVQBBAFkAUQBCAHMAQQBIAE0AQQBPAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBADgAQQBDADgAQQBkAEEAQgBvAEEARAA0AEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQBnAEEARABFAEEATQB3AEEAMwBBAEQAawBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEAQwBnAEEAOABBAEMAOABBAGQAQQBCAHkAQQBEADQAQQBDAGcAQQA4AEEASABRAEEAYwBnAEEAKwBBAEEAbwBBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBvAEEARAA0AEEAVABRAEIAdgBBAEcAUQBBAFoAUQBCAHMAQQBDAEEAQQBSAGcAQgBoAEEARwAwAEEAYQBRAEIAcwBBAEgAawBBAE8AZwBBADgAQQBDADgAQQBkAEEAQgBvAEEARAA0AEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBCAFEAQQBHADgAQQBhAFEAQgB6AEEASABNAEEAYgB3AEIAdQBBAEQAdwBBAEwAdwBCADAAQQBHAFEAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAFAAQQBCADAAQQBHAGcAQQBQAGcAQQBnAEEAQwBBAEEAUgBBAEIAbQBBAEMAQQBBAFQAUQBCAHYAQQBHAFEAQQBaAFEAQgBzAEEARABvAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARABVAEEAUABBAEEAdgBBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBDAGcAQQA4AEEAQwA4AEEAZABBAEIAeQBBAEQANABBAEMAZwBBADgAQQBIAFEAQQBjAGcAQQArAEEAQQBvAEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAG8AQQBEADQAQQBUAEEAQgBwAEEARwA0AEEAYQB3AEEAZwBBAEUAWQBBAGQAUQBCAHUAQQBHAE0AQQBkAEEAQgBwAEEARwA4AEEAYgBnAEEANgBBAEQAdwBBAEwAdwBCADAAQQBHAGcAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAFQAQQBCAHYAQQBHAGMAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEAUABBAEIAMABBAEcAZwBBAFAAZwBBAGcAQQBDAEEAQQBVAHcAQgBqAEEARwBFAEEAYgBBAEIAbABBAEQAbwBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQA4AEEAQwA4AEEAZABBAEIAbwBBAEQANABBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAeABBAEMANABBAE0AQQBBAHcAQQBEAEEAQQBNAEEAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEMAZwBBADgAQQBDADgAQQBkAEEAQgB5AEEARAA0AEEAQwBnAEEAOABBAEgAUQBBAGMAZwBBACsAQQBBAG8AQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAFQAUQBCAGwAQQBIAFEAQQBhAEEAQgB2AEEARwBRAEEATwBnAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEARQBrAEEAVQBnAEIATQBBAEYATQBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBQAEEAQgAwAEEARwBnAEEAUABnAEEAZwBBAEMAQQBBAFQAQQBCAHYAQQBHAGMAQQBMAFEAQgBNAEEARwBrAEEAYQB3AEIAbABBAEcAdwBBAGEAUQBCAG8AQQBHADgAQQBiAHcAQgBrAEEARABvAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBADgAQQBDADgAQQBkAEEAQgBvAEEARAA0AEEASQBBAEEAOABBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBMAFEAQQAwAEEARABZAEEATgBnAEEANABBAEMANABBAE0AQQBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEAQwBnAEEAOABBAEMAOABBAGQAQQBCAHkAQQBEADQAQQBDAGcAQQA4AEEASABRAEEAYwBnAEEAKwBBAEEAbwBBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBvAEEARAA0AEEAUgBBAEIAaABBAEgAUQBBAFoAUQBBADYAQQBEAHcAQQBMAHcAQgAwAEEARwBnAEEAUABnAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEARgBNAEEAZABRAEIAdQBBAEMAdwBBAEkAQQBBAHgAQQBEAFkAQQBJAEEAQgBOAEEARwBFAEEAYwBnAEEAZwBBAEQASQBBAE0AQQBBAHkAQQBEAFUAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAFAAQQBCADAAQQBHAGcAQQBQAGcAQQBnAEEAQwBBAEEAUgBBAEIAbABBAEgAWQBBAGEAUQBCAGgAQQBHADQAQQBZAHcAQgBsAEEARABvAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQA4AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAEkAQQBBAHgAQQBEAE0AQQBOAHcAQQA1AEEAQwA0AEEATQBnAEEAOABBAEMAOABBAGQAQQBCAGsAQQBEADQAQQBDAGcAQQA4AEEAQwA4AEEAZABBAEIAeQBBAEQANABBAEMAZwBBADgAQQBIAFEAQQBjAGcAQQArAEEAQQBvAEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAG8AQQBEADQAQQBWAEEAQgBwAEEARwAwAEEAWgBRAEEANgBBAEQAdwBBAEwAdwBCADAAQQBHAGcAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBrAEEARAA0AEEATQBRAEEANQBBAEQAbwBBAE0AdwBBADUAQQBEAG8AQQBNAFEAQQA1AEEARAB3AEEATAB3AEIAMABBAEcAUQBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEAUABBAEIAMABBAEcAZwBBAFAAZwBBAGcAQQBDAEEAQQBVAEEAQgBsAEEARwBFAEEAYwBnAEIAegBBAEcAOABBAGIAZwBBAGcAQQBHAE0AQQBhAEEAQgBwAEEARABJAEEATwBnAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQA4AEEAQwA4AEEAZABBAEIAbwBBAEQANABBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEARABFAEEATABnAEEAegBBAEQAYwBBAFoAUQBBAHIAQQBEAEEAQQBNAHcAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEMAZwBBADgAQQBDADgAQQBkAEEAQgB5AEEARAA0AEEAQwBnAEEAOABBAEgAUQBBAGMAZwBBACsAQQBBAG8AQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAFQAZwBCAHYAQQBDADQAQQBJAEEAQgBKAEEASABRAEEAWgBRAEIAeQBBAEcARQBBAGQAQQBCAHAAQQBHADgAQQBiAGcAQgB6AEEARABvAEEAUABBAEEAdgBBAEgAUQBBAGEAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBQAEEAQgAwAEEARwBRAEEAUABnAEEAMQBBAEQAdwBBAEwAdwBCADAAQQBHAFEAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBQAEEAQgAwAEEARwBnAEEAUABnAEEAZwBBAEMAQQBBAFUAQQBCAHoAQQBHAFUAQQBkAFEAQgBrAEEARwA4AEEASQBBAEIAUwBBAEMAMABBAGMAdwBCAHgAQQBIAFUAQQBMAGcAQQBnAEEAQwBnAEEAUQB3AEIAVABBAEMAawBBAE8AZwBBADgAQQBDADgAQQBkAEEAQgBvAEEARAA0AEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQB4AEEAQwA0AEEATQBBAEEAdwBBAEQAQQBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEAQwBnAEEAOABBAEMAOABBAGQAQQBCAHkAQQBEADQAQQBDAGcAQQA4AEEASABRAEEAYwBnAEEAKwBBAEEAbwBBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBvAEEARAA0AEEAUQB3AEIAdgBBAEgAWQBBAFkAUQBCAHkAQQBHAGsAQQBZAFEAQgB1AEEARwBNAEEAWgBRAEEAZwBBAEYAUQBBAGUAUQBCAHcAQQBHAFUAQQBPAGcAQQA4AEEAQwA4AEEAZABBAEIAbwBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAGIAZwBCAHYAQQBHADQAQQBjAGcAQgB2AEEARwBJAEEAZABRAEIAegBBAEgAUQBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAFAAQQBCADAAQQBHAGcAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBDAGcAQQA4AEEAQwA4AEEAZABBAEIAeQBBAEQANABBAEMAZwBBADgAQQBDADgAQQBkAEEAQgBoAEEARwBJAEEAYgBBAEIAbABBAEQANABBAAoAcwB1AGYAZgBpAHgAOgA=:31b8e172-b470-440e-83d8-e6b185028602 31b8e172-b470-440e-83d8-e6b185028602:dAB5AHAAZQA6AE8AQQBCAGwAQQBHAFkAQQBOAFEAQgBoAEEARABjAEEATgB3AEEAeQBBAEMAMABBAFoAQQBCAGsAQQBEAFkAQQBNAHcAQQB0AEEARABRAEEATgBnAEEAeQBBAEQASQBBAEwAUQBBADQAQQBEAFEAQQBZAGcAQgBtAEEAQwAwAEEAWQBRAEIAbQBBAEQARQBBAE8AUQBBADUAQQBEAFUAQQBZAFEAQQB4AEEARwBJAEEATQBnAEIAaQBBAEQAawBBAAoAcABvAHMAaQB0AGkAbwBuADoATQBRAEEAMABBAEQAQQBBAE8AUQBBADIAQQBBAD0APQAKAHAAcgBlAGYAaQB4ADoACgBzAG8AdQByAGMAZQA6AFAAQQBCADAAQQBHAEUAQQBZAGcAQgBzAEEARwBVAEEASQBBAEIAagBBAEcAdwBBAFkAUQBCAHoAQQBIAE0AQQBQAFEAQQBpAEEASABNAEEAYQBRAEIAdABBAEgAQQBBAGIAQQBCAGwAQQBIAFEAQQBZAFEAQgBpAEEARwB3AEEAWgBRAEEAaQBBAEQANABBAEMAZwBBADgAQQBIAFEAQQBjAGcAQQArAEEAQQBvAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAFAAQQBCADAAQQBHAFEAQQBQAGcAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAFkAdwBCAHYAQQBHAFUAQQBaAGcAQQA4AEEAQwA4AEEAZABBAEIAbwBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAGMAdwBCADAAQQBHAFEAQQBJAEEAQgBsAEEASABJAEEAYwBnAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAFAAQQBCADAAQQBHAGcAQQBQAGcAQgA2AEEARAB3AEEATAB3AEIAMABBAEcAZwBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAOABBAEgAUQBBAGEAQQBBACsAQQBGAEEAQQBQAGcAQgA4AEEASABvAEEAZgBBAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAFcAdwBBAHcAQQBDADQAQQBNAEEAQQB5AEEARABVAEEAUABBAEEAdgBBAEgAUQBBAGEAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEAUABBAEIAMABBAEcAZwBBAFAAZwBBAHcAQQBDADQAQQBPAFEAQQAzAEEARABVAEEAWABRAEEAOABBAEMAOABBAGQAQQBCAG8AQQBEADQAQQBJAEEAQQBnAEEAQQBvAEEAUABBAEEAdgBBAEgAUQBBAGMAZwBBACsAQQBBAG8AQQBQAEEAQgAwAEEASABJAEEAUABnAEEASwBBAEMAQQBBAEkAQQBBADgAQQBIAFEAQQBhAEEAQQArAEEARwBrAEEAYgBnAEIAMABBAEcAVQBBAGMAZwBCAGoAQQBHAFUAQQBjAEEAQgAwAEEARAB3AEEATAB3AEIAMABBAEcAZwBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQA4AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBPAFEAQQB1AEEARABBAEEATwBRAEEANABBAEQAQQBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARABBAEEATABnAEEAeQBBAEQATQBBAE8AUQBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAOABBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEARABNAEEATwBBAEEAdQBBAEQAQQBBAE0AdwBBAHcAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQB3AEEAQwA0AEEATQBBAEEAdwBBAEQAQQBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARABnAEEATABnAEEAMgBBAEQASQBBAE8AUQBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAOABBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEATwBRAEEAdQBBAEQAVQBBAE4AZwBBADMAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEASwBBAEQAdwBBAEwAdwBCADAAQQBIAEkAQQBQAGcAQQBLAEEARAB3AEEAZABBAEIAeQBBAEQANABBAEMAZwBBAGcAQQBDAEEAQQBQAEEAQgAwAEEARwBnAEEAUABnAEIAagBBAEcAVQBBAGIAZwBCADAAQQBHAFUAQQBjAGcAQgBsAEEARwBRAEEAWAB3AEIAeQBBAEcARQBBAGIAZwBCAGsAQQBHADgAQQBiAFEAQgBmAEEASABjAEEAWQBRAEIAcwBBAEcAcwBBAFAAQQBBAHYAQQBIAFEAQQBhAEEAQQArAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARABFAEEATABnAEEAdwBBAEQAQQBBAE4AZwBBADIAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAdwBBAEMANABBAE0AQQBBAHoAQQBEAEEAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAFAAQQBCADAAQQBHAFEAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAegBBAEQATQBBAEwAZwBBADMAQQBEAEkAQQBOAEEAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEATQBBAEEAdQBBAEQAQQBBAE0AQQBBAHcAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAdwBBAEMANABBAE8AUQBBADAAQQBEAGcAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAFAAQQBCADAAQQBHAFEAQQBQAGcAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEQARQBBAEwAZwBBAHcAQQBEAFkAQQBOAFEAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEMAZwBBADgAQQBDADgAQQBkAEEAQgB5AEEARAA0AEEAQwBnAEEAOABBAEgAUQBBAGMAZwBBACsAQQBBAG8AQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAbwBBAEQANABBAGQAdwBCAGwAQQBHAFUAQQBhAHcAQgBzAEEASABrAEEAWAB3AEIAegBBAEcAVQBBAFkAUQBCAHoAQQBHADgAQQBiAGcAQgBoAEEARwB3AEEAYQBRAEIAMABBAEgAawBBAFAAQQBBAHYAQQBIAFEAQQBhAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAdwBBAEMANABBAE8AUQBBADQAQQBEAGsAQQBPAEEAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAE0AQQBBAHUAQQBEAEEAQQBOAEEAQQAyAEEARAB3AEEATAB3AEIAMABBAEcAUQBBAFAAZwBBAGcAQQBEAHcAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAZwBBAEMAQQBBAE0AZwBBAHgAQQBDADQAQQBNAHcAQQAzAEEARABRAEEAUABBAEEAdgBBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBQAEEAQgAwAEEARwBRAEEAUABnAEEAZwBBAEQAQQBBAEwAZwBBAHcAQQBEAEEAQQBNAEEAQQA4AEEAQwA4AEEAZABBAEIAawBBAEQANABBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAE0AQQBBAHUAQQBEAGcAQQBPAFEAQQA1AEEARAB3AEEATAB3AEIAMABBAEcAUQBBAFAAZwBBAGcAQQBEAHcAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAHgAQQBDADQAQQBNAEEAQQA0AEEARABFAEEAUABBAEEAdgBBAEgAUQBBAFoAQQBBACsAQQBBAG8AQQBQAEEAQQB2AEEASABRAEEAYwBnAEEAKwBBAEEAbwBBAFAAQQBCADAAQQBIAEkAQQBQAGcAQQBLAEEAQwBBAEEASQBBAEEAOABBAEgAUQBBAGEAQQBBACsAQQBIAGsAQQBaAFEAQgBoAEEASABJAEEAYgBBAEIANQBBAEYAOABBAGMAdwBCAGwAQQBHAEUAQQBjAHcAQgB2AEEARwA0AEEAWQBRAEIAcwBBAEcAawBBAGQAQQBCADUAQQBEAHcAQQBMAHcAQgAwAEEARwBnAEEAUABnAEEAZwBBAEMAQQBBAEkAQQBBADgAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAE0AQQBBAHUAQQBEAGsAQQBOAHcAQQAzAEEARABJAEEAUABBAEEAdgBBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBQAEEAQgAwAEEARwBRAEEAUABnAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBEAEEAQQBMAGcAQQB3AEEARABJAEEATgBRAEEAOABBAEMAOABBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQA4AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAEkAQQBBAGcAQQBEAE0AQQBPAEEAQQB1AEEARABZAEEATgB3AEEANABBAEQAdwBBAEwAdwBCADAAQQBHAFEAQQBQAGcAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAEkAQQBBAHcAQQBDADQAQQBNAEEAQQB3AEEARABBAEEAUABBAEEAdgBBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBQAEEAQgAwAEEARwBRAEEAUABnAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBEAEEAQQBMAGcAQQA1AEEARABJAEEATwBBAEEAOABBAEMAOABBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQA4AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBNAFEAQQB1AEEARABBAEEATQBnAEEAMwBBAEQAdwBBAEwAdwBCADAAQQBHAFEAQQBQAGcAQQBLAEEARAB3AEEATAB3AEIAMABBAEgASQBBAFAAZwBBAEsAQQBEAHcAQQBkAEEAQgB5AEEARAA0AEEAQwBnAEEAZwBBAEMAQQBBAFAAQQBCADAAQQBHAGcAQQBQAGcAQgBuAEEASABJAEEAYgB3AEIAMwBBAEgAUQBBAGEAQQBBADgAQQBDADgAQQBkAEEAQgBvAEEARAA0AEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBQAEEAQgAwAEEARwBRAEEAUABnAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBEAEEAQQBMAGcAQQA1AEEARABrAEEATwBRAEEANABBAEQAdwBBAEwAdwBCADAAQQBHAFEAQQBQAGcAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQB3AEEAQwA0AEEATQBBAEEAdwBBAEQAawBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBBAGcAQQBDAEEAQQBNAFEAQQB4AEEARABNAEEATABnAEEAeQBBAEQAYwBBAE0AQQBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAOABBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBNAEEAQQB1AEEARABBAEEATQBBAEEAdwBBAEQAdwBBAEwAdwBCADAAQQBHAFEAQQBQAGcAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQB3AEEAQwA0AEEATwBRAEEANABBAEQASQBBAFAAQQBBAHYAQQBIAFEAQQBaAEEAQQArAEEAQwBBAEEAUABBAEIAMABBAEcAUQBBAFAAZwBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARABFAEEATABnAEEAdwBBAEQARQBBAE4AdwBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEAQwBnAEEAOABBAEMAOABBAGQAQQBCAHkAQQBEADQAQQBDAGcAQQA4AEEASABRAEEAYwBnAEEAKwBBAEEAbwBBAEkAQQBBAGcAQQBEAHcAQQBkAEEAQgBvAEEARAA0AEEAYgBBAEIAdgBBAEcAYwBBAFgAdwBCAHcAQQBIAEkAQQBhAFEAQgBqAEEARwBVAEEAUABBAEEAdgBBAEgAUQBBAGEAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEASQBBAEEAZwBBAEMAQQBBAEkAQQBBAGcAQQBDAEEAQQBJAEEAQQBnAEEARAB3AEEAZABBAEIAawBBAEQANABBAEkAQQBBAGcAQQBDAEEAQQBMAFEAQQB4AEEAQwA0AEEATQBnAEEAdwBBAEQASQBBAE0AQQBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAOABBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwBBAEEATQBBAEEAdQBBAEQAQQBBAE4AdwBBAHoAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQBnAEEAQwAwAEEATQBRAEEAMgBBAEMANABBAE4AUQBBAHgAQQBEAEkAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEMAQQBBAFAAQQBCADAAQQBHAFEAQQBQAGcAQQBnAEEARABBAEEATABnAEEAdwBBAEQAQQBBAE0AQQBBADgAQQBDADgAQQBkAEEAQgBrAEEARAA0AEEASQBBAEEAOABBAEgAUQBBAFoAQQBBACsAQQBDAEEAQQBJAEEAQQBnAEEAQwAwAEEATQBRAEEAdQBBAEQATQBBAE4AQQBBADEAQQBEAHcAQQBMAHcAQgAwAEEARwBRAEEAUABnAEEAZwBBAEQAdwBBAGQAQQBCAGsAQQBEADQAQQBJAEEAQQBnAEEAQwBBAEEATABRAEEAeABBAEMANABBAE0AQQBBADEAQQBEAGsAQQBQAEEAQQB2AEEASABRAEEAWgBBAEEAKwBBAEEAbwBBAFAAQQBBAHYAQQBIAFEAQQBjAGcAQQArAEEAQQBvAEEAUABBAEEAdgBBAEgAUQBBAFkAUQBCAGkAQQBHAHcAQQBaAFEAQQArAEEAQQA9AD0ACgBzAHUAZgBmAGkAeAA6AA==:31b8e172-b470-440e-83d8-e6b185028602
+<table class="simpletable">
+<caption>Generalized Linear Model Regression Results</caption>
+<tr>
+  <th>Dep. Variable:</th>           <td>y</td>        <th>  No. Observations:  </th>  <td>  1385</td> 
+</tr>
+<tr>
+  <th>Model:</th>                  <td>GLM</td>       <th>  Df Residuals:      </th>  <td>  1379</td> 
+</tr>
+<tr>
+  <th>Model Family:</th>         <td>Poisson</td>     <th>  Df Model:          </th>  <td>     5</td> 
+</tr>
+<tr>
+  <th>Link Function:</th>          <td>Log</td>       <th>  Scale:             </th> <td>  1.0000</td>
+</tr>
+<tr>
+  <th>Method:</th>                <td>IRLS</td>       <th>  Log-Likelihood:    </th> <td> -4668.0</td>
+</tr>
+<tr>
+  <th>Date:</th>            <td>Sun, 16 Mar 2025</td> <th>  Deviance:          </th> <td>  1379.2</td>
+</tr>
+<tr>
+  <th>Time:</th>                <td>21:11:40</td>     <th>  Pearson chi2:      </th> <td>1.37e+03</td>
+</tr>
+<tr>
+  <th>No. Iterations:</th>          <td>5</td>        <th>  Pseudo R-squ. (CS):</th>  <td> 1.000</td> 
+</tr>
+<tr>
+  <th>Covariance Type:</th>     <td>nonrobust</td>    <th>                     </th>     <td> </td>   
+</tr>
+</table>
+<table class="simpletable">
+<tr>
+            <td></td>              <th>coef</th>     <th>std err</th>      <th>z</th>      <th>P>|z|</th>  <th>[0.025</th>    <th>0.975]</th>  
+</tr>
+<tr>
+  <th>intercept</th>            <td>    9.0980</td> <td>    0.239</td> <td>   38.030</td> <td> 0.000</td> <td>    8.629</td> <td>    9.567</td>
+</tr>
+<tr>
+  <th>centered_random_walk</th> <td>    1.0066</td> <td>    0.030</td> <td>   33.724</td> <td> 0.000</td> <td>    0.948</td> <td>    1.065</td>
+</tr>
+<tr>
+  <th>weekly_seasonality</th>   <td>    0.9898</td> <td>    0.046</td> <td>   21.374</td> <td> 0.000</td> <td>    0.899</td> <td>    1.081</td>
+</tr>
+<tr>
+  <th>yearly_seasonality</th>   <td>    0.9772</td> <td>    0.025</td> <td>   38.678</td> <td> 0.000</td> <td>    0.928</td> <td>    1.027</td>
+</tr>
+<tr>
+  <th>growth</th>               <td>    0.9998</td> <td>    0.009</td> <td>  113.270</td> <td> 0.000</td> <td>    0.982</td> <td>    1.017</td>
+</tr>
+<tr>
+  <th>log_price</th>            <td>   -1.2020</td> <td>    0.073</td> <td>  -16.512</td> <td> 0.000</td> <td>   -1.345</td> <td>   -1.059</td>
+</tr>
+</table>
 
 +++
 
