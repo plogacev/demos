@@ -1,4 +1,4 @@
-## Sales Forecasting with Bayesian Inference
+## Sales Analysis with Bayesian Inference
 
 This notebook demonstrates the use of Bayesian inference for sales forecasting using various probabilistic programming techniques. We will use the `numpyro` library to define and fit our models, and `plotnine` for visualization.
 
