@@ -232,25 +232,25 @@ Similarly, the day-of-the-year effects are modeled using a seasonality basis mat
 -   **Day-of-the-week effects**:
 
 $$
-  zw_t = \mathbf{C}_{\text{wday}} \cdot \beta_{\text{wday}}, \quad \beta_{\text{wday}} \sim \mathcal{N}(0, 1)
+zw_t = \mathbf{C}_{\text{wday}} \cdot \beta_{\text{wday}}, \quad \beta_{\text{wday}} \sim \mathcal{N}(0, 1)
 $$
 
 -   **Day-of-the-year effects**:
 
 $$
-  zy_t = \mathbf{B}_{\text{yday}} \cdot \beta_{\text{yday}}, \quad \beta_{\text{yday}} \sim \mathcal{N}(0, 1)
+zy_t = \mathbf{B}_{\text{yday}} \cdot \beta_{\text{yday}}, \quad \beta_{\text{yday}} \sim \mathcal{N}(0, 1)
 $$
 
 -   **Price elasticity**:
 
 $$
-  ze_t = \text{log\_price\_centered} \cdot e, \quad \log(-e) \sim \mathcal{N^{+}}(0, 1)
+ze_t = \text{\text{log\_price\_centered}} \cdot e, \quad \log(-e) \sim \mathcal{N^{+}}(0, 1)
 $$
 
 -   **Sum of structural effects**:
 
 $$
-  z_t = zw_t + zy_t + ze_t
+z_t = zw_t + zy_t + ze_t
 $$
 
 ##### 1.2.1.3 Emissions Model
