@@ -1,2 +1,10 @@
+# Time Series Elasticity Analysis
+
 Sales data can be somewhat chaotic — fluctuating strongly due to market trends, changes in advertising strategy, seasonal cycles, and external shocks. Many analytical methods struggle to disentangle meaningful patterns from noise. The present project explores the potential of a Bayesian time series model to break down variance into distinct components.
 We put it to the test using a synthetic sales dataset designed with well-defined patterns: long-term growth, yearly seasonality, weekly variation, and price sensitivity. The model performed remarkably well, accurately identifying key trends while also quantifying uncertainty. The results highlight the power of Bayesian inference in revealing the drivers of sales dynamics, offering businesses a clearer, data-driven perspective and enabling decision-making that fully accounts for the uncertainty in the estimates.
+
+1. Synthetic Data Generation
+[Notebook](./ts_1_synthetic_data.md)
+
+1. Data Analysis
+[Notebook](./ts_2_analysis.md)
