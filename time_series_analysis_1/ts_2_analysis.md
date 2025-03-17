@@ -1,11 +1,10 @@
-
 ## Sales Forecasting with Bayesian Inference
 
 This notebook demonstrates the use of Bayesian inference for sales forecasting using various probabilistic programming techniques. We will use the `numpyro` library to define and fit our models, and `plotnine` for visualization.
 
 ## Introduction
 
-Bayesian inference allows us to incorporate prior knowledge and quantify uncertainty in our predictions. This notebook will guide you through the process of building a Bayesian model for sales forecasting, fitting the model using Markov Chain Monte Carlo (MCMC) and Stochastic Variational Inference (SVI), and visualizing the results.
+Bayesian inference allows us to incorporate prior knowledge and quantify uncertainty in our predictions. This notebook will guide you through the process of building a Bayesian model for sales forecasting, fitting the model using Markov Chain Monte Carlo (MCMC), and visualizing the results.
 
 ## Import Required Libraries And Define Functions
 
@@ -38,22 +37,18 @@ import arviz as az
 #jax.config.update("jax_enable_x64", True)  # Enable float64 by default
 ```
 
-    /home/pavel/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
-
-+++
-
 ## 1. Model
 
 In this section, we define the Bayesian model used for sales forecasting. The model incorporates various components such as random walk for the latent state, day-of-the-week effects, day-of-the-year effects, and price elasticity. The model is implemented using the `numpyro` library, which allows for efficient and scalable Bayesian inference.
 
 ### 1.1 Auxiliary Functions
 
-These auxiliary functions are essential for data preprocessing and transformation:
+These auxiliary functions are essential for data pre-processing and transformation:
 
-- `periodic_rbf`: Computes a periodic Gaussian radial basis function (RBF).
-- `compute_doy_basis`: Computes 12 periodic Gaussian basis functions for seasonal effects.
-- `read_data`: Reads and preprocesses the sales data from a CSV file.
-- `init_values`: Initializes values for the model parameters.
+-   `periodic_rbf`: Computes a periodic Gaussian radial basis function (RBF).
+-   `compute_doy_basis`: Computes 12 periodic Gaussian basis functions for seasonal effects.
+-   `read_data`: Reads and pre-processes the sales data from a CSV file.
+-   `init_values`: Initializes values for the model parameters.
 
 ```{code-cell}
 # Define a periodic Gaussian radial basis function (RBF)
@@ -196,18 +191,15 @@ def plot_function(x, y, title, xlab, ylab):
 
 #### 1.2.1 Key Features
 
-- Sales are modeled using a **stochastic Poisson process**, where the expected rate $\lambda_t$ evolves over time.
-- The **latent sales rate** follows a random walk, allowing it to drift nonstationarily.
-- **Seasonal components** (day-of-the-week and annual patterns) adjust for structured demand variations.
-- **Price elasticity** is explicitly modeled, ensuring sensitivity to pricing dynamics.
-- The model is implemented in numpyro, enabling scalable Bayesian inference.
-
-+++
+-   Sales are modeled using a **stochastic Poisson process**, where the expected rate $\lambda_t$ evolves over time.
+-   The **latent sales rate** follows a random walk, allowing it to drift non-stationarily.
+-   **Seasonal components** (day-of-the-week and annual patterns) adjust for structured demand variations.
+-   **Price elasticity** is explicitly modeled, ensuring sensitivity to pricing dynamics.
+-   The model is implemented in numpyro, enabling scalable Bayesian inference.
 
 #### 1.2.1 Model Overview
 
-We model the sales time series as a **stochastic process** where the underlying rate of sales evolves over time. This evolution follows a **random walk structure**, but with systematic adjustments for covariates such as price, day-of-the-week effects, and day-of-the-year effects. The rate of sales $\lambda_t$ on day $t$ is a function of captures *(i)* systematic covariate effects ($z_t$), *(ii)*
-a global baseline ($\mu_\tau$), and *(iii)* the latent dynamic component ($\tau_t$).
+We model the sales time series as a **stochastic process** where the underlying rate of sales evolves over time. This evolution follows a **random walk structure**, but with systematic adjustments for covariates such as price, day-of-the-week effects, and day-of-the-year effects. The rate of sales $\lambda_t$ on day $t$ is a function of captures *(i)* systematic covariate effects ($z_t$), *(ii)* a global baseline ($\mu_\tau$), and *(iii)* the latent dynamic component ($\tau_t$).
 
 $$
 log~\lambda_t = z_t + \mu_\tau + \tau_t
@@ -215,7 +207,7 @@ $$
 
 ##### 1.2.1.1 Latent States Dynamics
 
-The baseline sales level $\tau_t$ follows a **random walk**. Because all contrast matrices for structured effects are centered, $\mu_\tau + \tau_t$ can be interpreted as the average latent sales rate on $\tau_t$. 
+The baseline sales level $\tau_t$ follows a **random walk**. Because all contrast matrices for structured effects are centered, $\mu_\tau + \tau_t$ can be interpreted as the average latent sales rate on $\tau_t$.
 
 $$
 \tau_t = \tau_{t-1} + \delta_t, \quad \delta_t \sim \mathcal{N}(0, \sigma_\tau)
@@ -227,45 +219,39 @@ $$
 \mu_\tau \sim \text{Exponential}(1), \quad \sigma_\tau \sim \mathcal{N}(1)
 $$
 
-+++
-
 ##### 1.2.1.2 Structured Effects
 
 We further accounted for systematic effects of *(i)* day of the week, *(ii)* day of the year, and *(iii)* price.
 
-- For day of the week effects, we used a contrast matrix $\mathbf{C}_{\text{wday}}$ with sliding differences.
-- For day of the year effects, we used a matrix of Gaussian radial basis functions $\mathbf{B}_{\text{yday}}$.
-- Price elasticity is modelled using a centered log price 
+-   For day of the week effects, we used a contrast matrix $\mathbf{C}_{\text{wday}}$ with sliding differences.
+-   For day of the year effects, we used a matrix of Gaussian radial basis functions $\mathbf{B}_{\text{yday}}$.
+-   Price elasticity is modelled using a centered log price
 
 Similarly, the day-of-the-year effects are modeled using a seasonality basis matrix $\mathbf{B}_{\text{yday}}$, which represents periodic seasonal patterns using Gaussian radial basis functions (RBFs).
 
-+++
-
-- **Day-of-the-week effects**:
+-   **Day-of-the-week effects**:
 
 $$
   zw_t = \mathbf{C}_{\text{wday}} \cdot \beta_{\text{wday}}, \quad \beta_{\text{wday}} \sim \mathcal{N}(0, 1)
 $$
 
-- **Day-of-the-year effects**:
+-   **Day-of-the-year effects**:
 
 $$
   zy_t = \mathbf{B}_{\text{yday}} \cdot \beta_{\text{yday}}, \quad \beta_{\text{yday}} \sim \mathcal{N}(0, 1)
 $$
 
-- **Price elasticity**:
+-   **Price elasticity**:
 
 $$
   ze_t = \text{log\_price\_centered} \cdot e, \quad \log(-e) \sim \mathcal{N^{+}}(0, 1)
 $$
 
-- **Sum of structural effects**:
+-   **Sum of structural effects**:
 
 $$
   z_t = zw_t + zy_t + ze_t
 $$
-
-+++
 
 ##### 1.2.1.3 Emissions Model
 
@@ -274,7 +260,6 @@ Observed sales are assumed to follow a **Poisson distribution**, ensuring discre
 $$
 S_t \sim \text{Poisson}(\lambda_t)
 $$
-
 
 ```{code-cell}
 def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, wday: jnp.array, yday_fraction: jnp.array, 
@@ -341,22 +326,19 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
     numpyro.sample("sales", dist.Poisson(rate=state), obs=sales) # to-do: create a Poisson distribution paramaterized by log-rate, as in the Stan manual 
 ```
 
-## 2. Fit the Model 
+## 2. Fit the Model
 
-We use the `run_nuts` function to fit the model to our sales data. The function leverages the No-U-Turn Sampler (NUTS) from the `numpyro` library to perform MCMC sampling.
-Because the model has a large number of latent parameters, initialization to sensible start values is key.
-
-+++
+We use the `run_nuts` function to fit the model to our sales data. The function leverages the No-U-Turn Sampler (NUTS) from the `numpyro` library to perform MCMC sampling. Because the model has a large number of latent parameters, initialization to sensible start values is key.
 
 ### 2.1 Model Fitting Logic
 
 In order to fit the model, the functions below are used:
 
-1. `prepare_model_arguments`: Transforms the data into a format required by the model, including sales data, log-transformed prices, day-of-the-week values, and normalized day-of-the-year values.
+1.  `prepare_model_arguments`: Transforms the data into a format required by the model, including sales data, log-transformed prices, day-of-the-week values, and normalized day-of-the-year values.
 
-2. `init_values`: Finds sensible start values for the model parameters which, in this case is crucial for the convergence of the MCMC algorithm.
+2.  `init_values`: Finds sensible start values for the model parameters which, in this case is crucial for the convergence of the MCMC algorithm.
 
-2. `run_nuts`: Given a dataset, it calls the NUTS sampler to perform MCMC sampling.
+3.  `run_nuts`: Given a dataset, it calls the NUTS sampler to perform MCMC sampling.
 
 ```{code-cell}
 def init_values(sales: jnp.array, log_price_centered: jnp.array, wday, yday_fraction: jnp.array, downsampling_factor = 1):
@@ -470,8 +452,9 @@ def run_nuts(sales: jnp.array, log_price: jnp.array, wday, yday_fraction: jnp.ar
 ```
 
 ### 2.2 Fit the Model to the Synthetic Dataset
-- We fit the model to the synthetic dataset using the `run_nuts` function. The model is fitted using the No-U-Turn Sampler (NUTS) from the `numpyro` library, with 4 chains, 1,000 warmup iterations, and 1,000 sampling iterations. The step size is set to 0.01, and the maximum tree depth is 8. The fitted model is stored in the `m_fit` variable.
-- On CPU, the process takes about 2 minutes.
+
+-   We fit the model to the synthetic dataset using the `run_nuts` function. The model is fitted using the No-U-Turn Sampler (NUTS) from the `numpyro` library, with 4 chains, 1,000 warmup iterations, and 1,000 sampling iterations. The step size is set to 0.01, and the maximum tree depth is 8. The fitted model is stored in the `m_fit` variable.
+-   On CPU, the process takes about 2 minutes.
 
 ```{code-cell}
 # read in the synthetic sales data
@@ -485,210 +468,196 @@ m_fit, model_arguments = run_nuts(data['sales'], data['log_price'], data['wday']
                                     step_size=0.01, max_tree_depth=8)
 ```
 
-    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
-
-
-
-      0%|          | 0/2000 [00:00<?, ?it/s]
-
-
-
-      0%|          | 0/2000 [00:00<?, ?it/s]
-
-
-
-      0%|          | 0/2000 [00:00<?, ?it/s]
-
-
-
-      0%|          | 0/2000 [00:00<?, ?it/s]
-
+```         
+  0%|          | 0/2000 [00:00<?, ?it/s]
+  0%|          | 0/2000 [00:00<?, ?it/s]
+  0%|          | 0/2000 [00:00<?, ?it/s]
+  0%|          | 0/2000 [00:00<?, ?it/s]
+```
 
 ### 2.3 Inspect the MCMC results
 
-All effective sample sizes are decent, which is a good sign. The Gelman-Rubin statistics are close to 1, indicating convergence. Inspection of trace plots are beyond the scope of this notebook.
+-   All effective sample sizes are decent, which is a good sign. The Gelman-Rubin statistics are close to 1, indicating convergence. Inspection of trace plots are beyond the scope of this notebook.
+
+-   The model successfully reconstructs all key features of the synthetic dataset.
 
 #### 2.3.1 Random Walk Component
+
+-   The estimated random walk component closely follows the true trajectory of the combination long-term trend + random fluctuations in the synthetic data.
 
 ```{code-cell}
 # Let's look at the estimated random walk component of the model.
 az.summary(m_fit, var_names=["sigma", "log_state_delta"], filter_vars="like")
 ```
 
-
-
-+++
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>mean</th>
-      <th>sd</th>
-      <th>hdi_3%</th>
-      <th>hdi_97%</th>
-      <th>mcse_mean</th>
-      <th>mcse_sd</th>
-      <th>ess_bulk</th>
-      <th>ess_tail</th>
-      <th>r_hat</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>log_sigma</th>
-      <td>-2.823</td>
-      <td>0.104</td>
-      <td>-3.016</td>
-      <td>-2.634</td>
-      <td>0.003</td>
-      <td>0.002</td>
-      <td>1122.0</td>
-      <td>2413.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[0]</th>
-      <td>0.318</td>
-      <td>0.943</td>
-      <td>-1.389</td>
-      <td>2.129</td>
-      <td>0.016</td>
-      <td>0.014</td>
-      <td>3278.0</td>
-      <td>2661.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[1]</th>
-      <td>0.296</td>
-      <td>0.892</td>
-      <td>-1.344</td>
-      <td>1.987</td>
-      <td>0.016</td>
-      <td>0.015</td>
-      <td>3255.0</td>
-      <td>2471.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[2]</th>
-      <td>0.197</td>
-      <td>0.907</td>
-      <td>-1.465</td>
-      <td>1.887</td>
-      <td>0.016</td>
-      <td>0.013</td>
-      <td>3033.0</td>
-      <td>2899.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[3]</th>
-      <td>-0.510</td>
-      <td>0.901</td>
-      <td>-2.138</td>
-      <td>1.231</td>
-      <td>0.017</td>
-      <td>0.014</td>
-      <td>2832.0</td>
-      <td>2800.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>...</th>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-      <td>...</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[194]</th>
-      <td>0.577</td>
-      <td>0.648</td>
-      <td>-0.715</td>
-      <td>1.738</td>
-      <td>0.013</td>
-      <td>0.009</td>
-      <td>2512.0</td>
-      <td>2770.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[195]</th>
-      <td>-0.733</td>
-      <td>0.668</td>
-      <td>-1.988</td>
-      <td>0.508</td>
-      <td>0.014</td>
-      <td>0.009</td>
-      <td>2428.0</td>
-      <td>2691.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[196]</th>
-      <td>-0.666</td>
-      <td>0.650</td>
-      <td>-1.979</td>
-      <td>0.462</td>
-      <td>0.012</td>
-      <td>0.009</td>
-      <td>2785.0</td>
-      <td>2337.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>log_state_delta[197]</th>
-      <td>-0.577</td>
-      <td>0.840</td>
-      <td>-2.192</td>
-      <td>0.963</td>
-      <td>0.014</td>
-      <td>0.013</td>
-      <td>3504.0</td>
-      <td>3042.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>sigma</th>
-      <td>0.060</td>
-      <td>0.006</td>
-      <td>0.048</td>
-      <td>0.071</td>
-      <td>0.000</td>
-      <td>0.000</td>
-      <td>1122.0</td>
-      <td>2413.0</td>
-      <td>1.0</td>
-    </tr>
-  </tbody>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 10%" />
+<col style="width: 9%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><p></p></th>
+<th><p>mean</p></th>
+<th><p>sd</p></th>
+<th><p>hdi_3%</p></th>
+<th><p>hdi_97%</p></th>
+<th><p>mcse_mean</p></th>
+<th><p>mcse_sd</p></th>
+<th><p>ess_bulk</p></th>
+<th><p>ess_tail</p></th>
+<th><p>r_hat</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><p>log_sigma</p></td>
+<td><p>-2.818</p></td>
+<td><p>0.102</p></td>
+<td><p>-3.017</p></td>
+<td><p>-2.633</p></td>
+<td><p>0.003</p></td>
+<td><p>0.001</p></td>
+<td><p>1269.0</p></td>
+<td><p>1730.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="even">
+<td><p>log_state_delta0</p></td>
+<td><p>0.317</p></td>
+<td><p>0.934</p></td>
+<td><p>-1.507</p></td>
+<td><p>1.995</p></td>
+<td><p>0.017</p></td>
+<td><p>0.014</p></td>
+<td><p>3154.0</p></td>
+<td><p>2722.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="odd">
+<td><p>log_state_delta1</p></td>
+<td><p>0.295</p></td>
+<td><p>0.890</p></td>
+<td><p>-1.330</p></td>
+<td><p>1.975</p></td>
+<td><p>0.015</p></td>
+<td><p>0.014</p></td>
+<td><p>3355.0</p></td>
+<td><p>2536.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="even">
+<td><p>log_state_delta2</p></td>
+<td><p>0.198</p></td>
+<td><p>0.892</p></td>
+<td><p>-1.401</p></td>
+<td><p>1.919</p></td>
+<td><p>0.017</p></td>
+<td><p>0.012</p></td>
+<td><p>2878.0</p></td>
+<td><p>2984.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="odd">
+<td><p>log_state_delta3</p></td>
+<td><p>-0.512</p></td>
+<td><p>0.911</p></td>
+<td><p>-2.181</p></td>
+<td><p>1.209</p></td>
+<td><p>0.017</p></td>
+<td><p>0.013</p></td>
+<td><p>2917.0</p></td>
+<td><p>3090.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="even">
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+<td><p>...</p></td>
+</tr>
+<tr class="odd">
+<td><p>log_state_delta194</p></td>
+<td><p>0.587</p></td>
+<td><p>0.639</p></td>
+<td><p>-0.633</p></td>
+<td><p>1.794</p></td>
+<td><p>0.012</p></td>
+<td><p>0.010</p></td>
+<td><p>2632.0</p></td>
+<td><p>2667.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="even">
+<td><p>log_state_delta195</p></td>
+<td><p>-0.720</p></td>
+<td><p>0.667</p></td>
+<td><p>-1.976</p></td>
+<td><p>0.519</p></td>
+<td><p>0.013</p></td>
+<td><p>0.009</p></td>
+<td><p>2615.0</p></td>
+<td><p>2788.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="odd">
+<td><p>log_state_delta196</p></td>
+<td><p>-0.694</p></td>
+<td><p>0.652</p></td>
+<td><p>-1.964</p></td>
+<td><p>0.513</p></td>
+<td><p>0.013</p></td>
+<td><p>0.010</p></td>
+<td><p>2628.0</p></td>
+<td><p>2524.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="even">
+<td><p>log_state_delta197</p></td>
+<td><p>-0.898</p></td>
+<td><p>0.784</p></td>
+<td><p>-2.312</p></td>
+<td><p>0.631</p></td>
+<td><p>0.013</p></td>
+<td><p>0.012</p></td>
+<td><p>3482.0</p></td>
+<td><p>3061.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+<tr class="odd">
+<td><p>sigma</p></td>
+<td><p>0.060</p></td>
+<td><p>0.006</p></td>
+<td><p>0.049</p></td>
+<td><p>0.072</p></td>
+<td><p>0.000</p></td>
+<td><p>0.000</p></td>
+<td><p>1269.0</p></td>
+<td><p>1730.0</p></td>
+<td><p>1.0</p></td>
+</tr>
+</tbody>
 </table>
-<p>200 rows × 9 columns</p>
+
 </div>
 
-+++
-
-Here, we'll plot the estimated the random walk component, which also incorporates long term trends and growth or decline of sales. For present purposes, this is what amounts to irrelevant noise in the model.
+-   Here, we'll plot the estimated the random walk component, which also incorporates long term trends and growth or decline of sales. For present purposes, this is what amounts to irrelevant noise in the model.
 
 ```{code-cell}
 # Create a sequence of dates starting at data["date"].min() the length of x['mean'], in steps of 7 days
@@ -697,451 +666,102 @@ dates = pd.date_range(start = data["date"].min(), periods = len(rw_states), freq
 plot_function(dates, np.exp(rw_states), "Estimated Random Walk Component", "Date", "Sales") # to-do: add uncertainty bands
 ```
 
-    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
-
-
-+++
-
-![png](ts_2_analysis_files/ts_2_analysis_19_1.png)
-    
-
-+++
+![](ts_2_analysis_files/ts_2_analysis_19_1.png)
 
 #### 2.3.2 Day of the Week Effects
+
+-   The model appears to correctly identifies weekly sales fluctuations.
 
 ```{code-cell}
 coefs_wday = az.summary(m_fit, var_names=["wday_coefficients"], filter_vars="like")
 coefs_wday
 ```
 
-    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
-
-
-
-+++
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
+|   | mean | sd | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
+|----------------|------|------|------|--------|------|------|------|-------|------|
+| wday_coefficients0 | -0.022 | 0.012 | -0.046 | -0.001 | 0.0 | 0.0 | 3291 | 2463 | 1.0 |
+| wday_coefficients1 | -0.102 | 0.012 | -0.127 | -0.081 | 0.0 | 0.0 | 2360 | 2804 | 1.0 |
+| wday_coefficients2 | -0.062 | 0.013 | -0.085 | -0.038 | 0.0 | 0.0 | 2649 | 2870 | 1.0 |
+| wday_coefficients3 | 0.000 | 0.013 | -0.024 | 0.024 | 0.0 | 0.0 | 2483 | 2520 | 1.0 |
+| wday_coefficients4 | 0.078 | 0.013 | 0.054 | 0.102 | 0.0 | 0.0 | 2583 | 3093 | 1.0 |
+| wday_coefficients5 | 0.067 | 0.012 | 0.046 | 0.091 | 0.0 | 0.0 | 3152 | 2596 | 1.0 |
 
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>mean</th>
-      <th>sd</th>
-      <th>hdi_3%</th>
-      <th>hdi_97%</th>
-      <th>mcse_mean</th>
-      <th>mcse_sd</th>
-      <th>ess_bulk</th>
-      <th>ess_tail</th>
-      <th>r_hat</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>wday_coefficients[0]</th>
-      <td>-0.022</td>
-      <td>0.012</td>
-      <td>-0.046</td>
-      <td>0.000</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3461.0</td>
-      <td>2405.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>wday_coefficients[1]</th>
-      <td>-0.103</td>
-      <td>0.012</td>
-      <td>-0.127</td>
-      <td>-0.080</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>2395.0</td>
-      <td>3019.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>wday_coefficients[2]</th>
-      <td>-0.062</td>
-      <td>0.013</td>
-      <td>-0.086</td>
-      <td>-0.038</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>2662.0</td>
-      <td>2699.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>wday_coefficients[3]</th>
-      <td>0.000</td>
-      <td>0.013</td>
-      <td>-0.024</td>
-      <td>0.025</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>2480.0</td>
-      <td>2377.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>wday_coefficients[4]</th>
-      <td>0.078</td>
-      <td>0.012</td>
-      <td>0.053</td>
-      <td>0.100</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>2509.0</td>
-      <td>2922.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <th>wday_coefficients[5]</th>
-      <td>0.067</td>
-      <td>0.012</td>
-      <td>0.045</td>
-      <td>0.090</td>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>3248.0</td>
-      <td>2802.0</td>
-      <td>1.0</td>
-    </tr>
-  </tbody>
-</table>
 </div>
 
-+++
-
-Here, we'll plot the estimated weekly seasonality.
+-   Here, we'll plot the estimated weekly seasonality.
 
 ```{code-cell}
 wday_effect = jnp.dot(model_arguments["contrasts_wday"], jnp.array(coefs_wday["mean"]))
 plot_function(range(0,7), wday_effect, "Effect of Day of the Week", "Date", "Sales") # to-do: add uncertainty bands
 ```
 
-
-
-+++
-
-![png](ts_2_analysis_files/ts_2_analysis_23_0.png)
-    
-
-+++
+![](ts_2_analysis_files/ts_2_analysis_23_0.png)
 
 #### 2.3.3 Yearly Seasonality Effects
+
+-   Seasonal peaks and troughs are largely accurately captured, with minor deviations.
 
 ```{code-cell}
 coefs_yday = az.summary(m_fit, var_names=["yday_coefficients"], filter_vars="like")
 coefs_yday
 ```
 
-    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
-
-
-
-+++
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
+|   | mean | sd | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
+|----------------|-------|-------|-------|-------|-------|-------|-------|-------|-------|
+| yday_coefficients0 | -0.089 | 0.367 | -0.744 | 0.628 | 0.017 | 0.008 | 441.0 | 877.0 | 1.00 |
+| yday_coefficients1 | -0.064 | 0.375 | -0.798 | 0.621 | 0.018 | 0.008 | 440.0 | 1069.0 | 1.00 |
+| yday_coefficients2 | -0.051 | 0.372 | -0.717 | 0.663 | 0.018 | 0.009 | 451.0 | 733.0 | 1.01 |
+| yday_coefficients3 | -0.047 | 0.382 | -0.786 | 0.640 | 0.019 | 0.008 | 428.0 | 1007.0 | 1.00 |
+| yday_coefficients4 | 0.144 | 0.370 | -0.539 | 0.849 | 0.017 | 0.009 | 453.0 | 809.0 | 1.00 |
+| yday_coefficients5 | -0.121 | 0.375 | -0.814 | 0.588 | 0.018 | 0.009 | 414.0 | 957.0 | 1.00 |
+| yday_coefficients6 | 0.218 | 0.373 | -0.573 | 0.857 | 0.018 | 0.009 | 439.0 | 880.0 | 1.00 |
+| yday_coefficients7 | -0.050 | 0.366 | -0.741 | 0.657 | 0.018 | 0.009 | 398.0 | 811.0 | 1.00 |
+| yday_coefficients8 | 0.098 | 0.372 | -0.587 | 0.822 | 0.017 | 0.009 | 452.0 | 940.0 | 1.00 |
+| yday_coefficients9 | -0.116 | 0.371 | -0.844 | 0.573 | 0.019 | 0.010 | 404.0 | 817.0 | 1.00 |
+| yday_coefficients10 | -0.059 | 0.367 | -0.738 | 0.644 | 0.017 | 0.009 | 448.0 | 867.0 | 1.00 |
+| yday_coefficients11 | -0.109 | 0.371 | -0.873 | 0.537 | 0.018 | 0.009 | 413.0 | 892.0 | 1.00 |
 
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>mean</th>
-      <th>sd</th>
-      <th>hdi_3%</th>
-      <th>hdi_97%</th>
-      <th>mcse_mean</th>
-      <th>mcse_sd</th>
-      <th>ess_bulk</th>
-      <th>ess_tail</th>
-      <th>r_hat</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>yday_coefficients[0]</th>
-      <td>-0.086</td>
-      <td>0.366</td>
-      <td>-0.770</td>
-      <td>0.606</td>
-      <td>0.017</td>
-      <td>0.008</td>
-      <td>453.0</td>
-      <td>889.0</td>
-      <td>1.01</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[1]</th>
-      <td>-0.074</td>
-      <td>0.376</td>
-      <td>-0.786</td>
-      <td>0.620</td>
-      <td>0.018</td>
-      <td>0.008</td>
-      <td>459.0</td>
-      <td>1127.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[2]</th>
-      <td>-0.053</td>
-      <td>0.372</td>
-      <td>-0.797</td>
-      <td>0.600</td>
-      <td>0.018</td>
-      <td>0.009</td>
-      <td>449.0</td>
-      <td>774.0</td>
-      <td>1.01</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[3]</th>
-      <td>-0.043</td>
-      <td>0.384</td>
-      <td>-0.764</td>
-      <td>0.667</td>
-      <td>0.018</td>
-      <td>0.008</td>
-      <td>468.0</td>
-      <td>1283.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[4]</th>
-      <td>0.137</td>
-      <td>0.370</td>
-      <td>-0.578</td>
-      <td>0.797</td>
-      <td>0.018</td>
-      <td>0.009</td>
-      <td>446.0</td>
-      <td>808.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[5]</th>
-      <td>-0.121</td>
-      <td>0.375</td>
-      <td>-0.854</td>
-      <td>0.571</td>
-      <td>0.018</td>
-      <td>0.009</td>
-      <td>458.0</td>
-      <td>1064.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[6]</th>
-      <td>0.215</td>
-      <td>0.372</td>
-      <td>-0.442</td>
-      <td>0.985</td>
-      <td>0.018</td>
-      <td>0.009</td>
-      <td>431.0</td>
-      <td>854.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[7]</th>
-      <td>-0.054</td>
-      <td>0.366</td>
-      <td>-0.736</td>
-      <td>0.665</td>
-      <td>0.017</td>
-      <td>0.009</td>
-      <td>451.0</td>
-      <td>931.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[8]</th>
-      <td>0.096</td>
-      <td>0.372</td>
-      <td>-0.656</td>
-      <td>0.744</td>
-      <td>0.017</td>
-      <td>0.009</td>
-      <td>457.0</td>
-      <td>887.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[9]</th>
-      <td>-0.123</td>
-      <td>0.369</td>
-      <td>-0.810</td>
-      <td>0.593</td>
-      <td>0.018</td>
-      <td>0.010</td>
-      <td>443.0</td>
-      <td>914.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[10]</th>
-      <td>-0.058</td>
-      <td>0.366</td>
-      <td>-0.783</td>
-      <td>0.609</td>
-      <td>0.017</td>
-      <td>0.009</td>
-      <td>456.0</td>
-      <td>890.0</td>
-      <td>1.00</td>
-    </tr>
-    <tr>
-      <th>yday_coefficients[11]</th>
-      <td>-0.119</td>
-      <td>0.369</td>
-      <td>-0.879</td>
-      <td>0.527</td>
-      <td>0.018</td>
-      <td>0.010</td>
-      <td>439.0</td>
-      <td>938.0</td>
-      <td>1.00</td>
-    </tr>
-  </tbody>
-</table>
 </div>
 
-
+-   Here, we'll plot the estimated yearly seasonality.
 
 ```{code-cell}
 yday_effect = jnp.dot(model_arguments["contrasts_yday"], jnp.array(coefs_yday["mean"]))
 plot_function(data["date"], yday_effect, "Yearly Seasonality", "Date", "Sales") # to-do: add uncertainty bands
 ```
 
-
-
-+++
-
-![png](ts_2_analysis_files/ts_2_analysis_26_0.png)
-    
-
-+++
+![](ts_2_analysis_files/ts_2_analysis_27_0.png)
 
 #### 2.3.4 Price Elasticity
+
+-   The estimated elasticity coefficient is close to the true value ($-1.2$).
 
 ```{code-cell}
 az.summary(m_fit, var_names=["elasticity"])
 ```
 
-    /home/pavel/.local/lib/python3.10/site-packages/jax/_src/numpy/scalar_types.py:49: UserWarning: Explicitly requested dtype float64 requested in asarray is not available, and will be truncated to dtype float32. To enable more dtypes, set the jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell environment variable. See https://github.com/jax-ml/jax#current-gotchas for more.
-
-
-
-+++
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
+|            | mean  | sd    | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
+|---------|-------|-------|-------|-------|-------|-------|-------|-------|-------|
+| elasticity | -1.26 | 0.332 | -1.924 | -0.659  | 0.008     | 0.006   | 1738.0   | 1264.0   | 1.0   |
 
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>mean</th>
-      <th>sd</th>
-      <th>hdi_3%</th>
-      <th>hdi_97%</th>
-      <th>mcse_mean</th>
-      <th>mcse_sd</th>
-      <th>ess_bulk</th>
-      <th>ess_tail</th>
-      <th>r_hat</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>elasticity</th>
-      <td>-1.267</td>
-      <td>0.334</td>
-      <td>-1.877</td>
-      <td>-0.629</td>
-      <td>0.008</td>
-      <td>0.005</td>
-      <td>1638.0</td>
-      <td>1600.0</td>
-      <td>1.0</td>
-    </tr>
-  </tbody>
-</table>
 </div>
 
+## 3. Conclusion
 
+This case study demonstrates how Bayesian modeling can effectively decompose sales variance into meaningful components, providing a structured way to analyze the underlying factors driving sales fluctuations. By applying this approach to a synthetic dataset, we validated the model’s ability to separate out long-term growth, seasonal effects, and price sensitivity while simultaneously quantifying uncertainty.
 
-```{code-cell}
+The key takeaways include:
 
-```
+-   **Decomposing complexity:** The model successfully isolates different components influencing sales, making it easier to interpret real-world dynamics.
 
-```{code-cell}
+-   **Quantifying uncertainty:** In addition to point estimates, Bayesian inference provides full posterior distributions, enabling better risk assessment.
 
-```
+-   **Informed decision-making:** By accounting for all sources of variance, businesses can make more confident strategic decisions that explicitly consider uncertainty. For instance, price optimization can be performed on the entire posterior distribution of the estimate of the price elasticity of demand.
 
-```{code-cell}
-
-```
-
-```{code-cell}
-
-```
-
-```{code-cell}
-
-```
-
-```{code-cell}
-
-```
-
-    ---------------------------------------------------------------------------
-
-    NameError                                 Traceback (most recent call last)
-
-    Cell In[1], line 1
-    ----> 1 x = pd.DataFrame({ 'date': df["date"].to_numpy(), 'sales': df["sales"].to_numpy(), 'state': m['state'] })
-          2 ggplot(x, aes(x='date', y='sales')) + geom_point() + geom_line(aes(y='state'), color = "red") + theme_bw()
-
-
-    NameError: name 'pd' is not defined
+These findings highlight the advantages of probabilistic modeling in sales analysis, offering a flexible and interpretable method.
