@@ -231,9 +231,7 @@ Similarly, the day-of-the-year effects are modeled using a seasonality basis mat
 
 -   **Day-of-the-week effects**:
 
-$$
-zw_t = \mathbf{C}_{\text{wday}} \cdot \beta_{\text{wday}}, \quad \beta_{\text{wday}} \sim \mathcal{N}(0, 1)
-$$
+$$zw_t = \mathbf{C}_{\text{wday}} \cdot \beta_{\text{wday}}, \quad \beta_{\text{wday}} \sim \mathcal{N}(0, 1)$$
 
 -   **Day-of-the-year effects**:
 
