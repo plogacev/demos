@@ -1,0 +1,1 @@
+- Among other things what the interviewer called "uplift modeling", i.e., targeted campaigns for specific subgroups, presumably based on "their elasticity"?
