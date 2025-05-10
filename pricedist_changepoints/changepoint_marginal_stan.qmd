@@ -20,7 +20,8 @@ This notebook demonstrates a Bayesian changepoint detection model on synthetic s
 
 When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
 
-```{r}
+```{r message=FALSE}
+# Load required libraries
 library(tidyverse)
 library(magrittr)
 library(cmdstanr)
@@ -29,22 +30,26 @@ library(cmdstanr)
 ## Setup
 
 ```{r}
-#set.seed(12345)
+# Fix the random seed for reproducibility
 set.seed(123)
 
+# Define number of observations, expected average transaction volume, and the number of days to simulate
 n_days <- 650
 lambda_qty <- 5
-#lambda_discount_qty <- 3
 days <- 1:n_days
+
+# Specify a sequence of price regimes with distinct list prices, discounts, and discount probabilities
 segments <- data.frame(
-  start_day = c(1, 100, 200, 300, 400, 500, 550, 600),
-  list_price = c(5, 5, 6, 6, 6, 5.5, 5.5, 5.5),
-  discount_price = c(4, 4, 5, 5, 5, 4.5, 4.5, 4.5),
-  discount_probability = c(.25, .1, .1, .25, .5, .01, .05, .15)
+             start_day = c(1,  100, 200, 300, 400, 500, 550, 600),
+            list_price = c(5,    5,   6,   6,   6, 5.5, 5.5, 5.5),
+        discount_price = c(4,    4,   5,   5,   5, 4.5, 4.5, 4.5),
+  discount_probability = c(.25, .1,  .1, .25,  .5, .01, .05, .15)
 )
 
+# Map each day to its corresponding pricing regime
 segment_id <- findInterval(days, segments$start_day)
 
+# Generate a synthetic transactional record with total quantity and price assignment
 df <- data.frame(
     day = days, 
     list_price = segments$list_price[segment_id],
@@ -70,21 +75,38 @@ select(day, price, qty)
 ```
 
 ```{r}
-p_price <- df %>% filter(qty > 0) %>% ggplot(aes(day, price)) + geom_point(aes(size=qty)) + theme_bw() + geom_vline(xintercept = segments$start_day[-1], color = "red") 
+# Visualize the synthetic price trajectories over time.
+# Bubble size reflects quantity sold; red dashed lines denote predefined changepoints.
+p_price <- df %>% 
+    filter(qty > 0) %>%
+    ggplot(aes(day, price)) + 
+    geom_point(aes(size=qty)) + 
+    theme_bw() + 
+    geom_vline(xintercept = segments$start_day[-1], color = "red", linetype = "dashed") 
+
 print(p_price)
 ```
 
 
 ```{r}
+# Aggregate total daily quantities and remove days with no transactions.
+df_nonzero <- df %>%
+  mutate( total_qty = sum(qty), .by = "day" ) %>%
+  filter(total_qty > 0) %>%
+  select(-total_qty)
 
-df_nonzero <- df %>% mutate( total_qty = sum(qty), .by = "day" ) %>% filter(total_qty > 0) %>% select(-total_qty)
-df_wide <- df_nonzero %>% pivot_wider(names_from = "price", values_from = "qty", values_fill = 0)
+# Reshape the cleaned transactional data into a price-by-day matrix format.
+# Each row corresponds to a day; each column to a discretized price point.
+df_wide <- df_nonzero %>% 
+  pivot_wider(names_from = "price", values_from = "qty", values_fill = 0)
 
+# Convert to a numeric matrix and enforce price column ordering.
 histogram_qty <- as.matrix(df_wide[,-1])
 price_points <- as.numeric(colnames(histogram_qty))
 histogram_qty <- histogram_qty[,order(price_points)]
 price_points %<>% sort()
 
+# Structure data for Stan input as a list of matrix and metadata dimensions.
 data_stan <- list(
   n_time_points = nrow(histogram_qty),
   n_price_points = ncol(histogram_qty),
@@ -96,8 +118,10 @@ data_stan <- list(
 ## Compile and Run Stan Model
 
 ```{r}
+# Compile the custom Stan model for changepoint marginal likelihood computation
 model <- cmdstan_model("./changepoint_marginal_v1.stan")
 
+# Perform optimization-based inference to obtain MAP estimates
 opt <- model$optimize(
   data = data_stan,
   seed = 123
@@ -108,12 +132,23 @@ opt <- model$optimize(
 ## Analyze Estimated Changepoint Probabilities
 
 ```{r}
+# Extract the estimated changepoint probabilities from the Stan model output
 cp_probs <- opt$summary("cp_probs") %>% .$estimate %>% c(., NA)
+
+# Associate each time point (day) with its corresponding estimated changepoint probability
 df_estimates <- data.frame( day = df_wide$day, cp_probs = cp_probs ) %>% filter(!is.na(cp_probs))
-p_cp <- df_estimates %>% ggplot(aes(x=day, y=cp_probs)) + geom_point() + geom_bar(stat="identity") + theme_bw() + xlab("day") + ylab("Est. change probability")
+
+# Visualize the changepoint probabilities over time using both point and bar representation
+p_cp <- df_estimates %>% 
+    ggplot(aes(x=day, y=cp_probs)) + 
+    geom_point() + geom_bar(stat="identity") + 
+    theme_bw() + 
+    xlab("day") + ylab("Est. change probability")
 ```
 
 ```{r}
+# Combine price plot and changepoint probability plot into a vertically stacked layout
+# This facilitates visual comparison between observed pricing patterns and inferred changepoints
 ggpubr::ggarrange(p_price + theme(legend.position = "none"), p_cp, ncol = 1)
 ```
 
