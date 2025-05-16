@@ -1,21 +1,24 @@
 functions {
+  
   // Computes cumulative sum of the histogram over time
-  matrix create_histogram_cumulative(matrix histogram)
+  array[,] int create_histogram_cumulative(array[,] int histogram)
   {
-      int n_time_points = rows(histogram);
-      matrix[n_time_points, cols(histogram)] result;
+      int n_time_points = dims(histogram)[1];
+      int n_price_points = dims(histogram)[2];
+      array[n_time_points, n_price_points] int result;
       
       // Initialize with first row
       result[1] = histogram[1];
 
       // Reject if all values are zero in the entire histogram
-      if( sum(histogram) == 0 ) {
+      if( sum(histogram[1]) == 0 ) {
           reject("Row 1 in quantity histogram is all zeroes. Please exclude such rows.");
       }
       
       // Compute cumulative sum row-wise
       for (t in 2:n_time_points) {
-          result[t] = result[t - 1] + histogram[t];
+          for (p in 1:n_price_points)
+            result[t][p] = result[t - 1][p] + histogram[t][p];
           
           // Check for empty histogram rows (no prices at all)
           if ( sum(histogram[t]) == 0 ) {
@@ -27,19 +30,20 @@ functions {
   }
 
   // Extracts the histogram for a segment [t_start, t_end]
-  vector extract_segment_histogram(int t_start, int t_end, matrix histogram_cumulative)
+  vector extract_segment_histogram(int t_start, int t_end, array[,] int histogram_cumulative)
   {
-      int n_time_points = rows(histogram_cumulative);
-      int n_price_points = cols(histogram_cumulative);
-      row_vector[n_price_points] start_vals;
-      row_vector[n_price_points] end_vals;
-      row_vector[n_price_points] result;
+      int n_time_points = dims(histogram_cumulative)[1];
+      int n_price_points = dims(histogram_cumulative)[2];
+      array[n_price_points] int start_vals;
+      array[n_price_points] int end_vals;
+      array[n_price_points] int result;
       
       
       // Retrieve cumulative before the start
       int t_prev = t_start - 1;
       if (t_prev < 1) {
-          start_vals = rep_row_vector(0.0, n_price_points);
+          for (p in 1:n_price_points)
+              start_vals[p] = 0;
       } else {
           start_vals = histogram_cumulative[t_prev];
       }
@@ -48,20 +52,22 @@ functions {
       end_vals = (t_end <= n_time_points) ? histogram_cumulative[t_end] :  histogram_cumulative[n_time_points];
       
       // Segment = difference between cumulative ends
-      result = end_vals - start_vals;
+      for (p in 1:n_price_points)
+          result[p] = end_vals[p] - start_vals[p];
+
       return to_vector(result);
   }
 
   // Computes segment log-likelihood under multinomial model
-  real compute_segment_loglik(int t_start, int t_end, matrix histogram_cumulative)
+  real compute_segment_loglik(int t_start, int t_end, array[,] int histogram_cumulative)
   {
-      int n_time_points = cols(histogram_cumulative);
-      vector[n_time_points] histogram = extract_segment_histogram(t_start, t_end, histogram_cumulative);
+      int n_price_points = dims(histogram_cumulative)[2];
+      vector[n_price_points] histogram = extract_segment_histogram(t_start, t_end, histogram_cumulative);
       real total_qty = sum(histogram);
-      vector[n_time_points] log_probs;
+      vector[n_price_points] log_probs;
   
       // Compute log-probabilities for multinomial
-      for (i in 1:cols(histogram_cumulative)) {
+      for (i in 1:n_price_points) {
           log_probs[i] = histogram[i] > 0 ? log(histogram[i] / total_qty) : 0.0;
       }
 
@@ -70,9 +76,9 @@ functions {
   }
 
   // Precomputes all segment log-likelihoods for dynamic programming algo
-  matrix compute_segments_loglik(matrix histogram_cumulative)
+  matrix compute_segments_loglik(array[,] int histogram_cumulative)
   {
-      int n_time_points = rows(histogram_cumulative);
+      int n_time_points = dims(histogram_cumulative)[1];
       matrix[n_time_points, n_time_points] segments_loglik;
   
       // Compute upper triangle log-likelihoods
@@ -107,10 +113,10 @@ functions {
   // Computes change magnitude between adjacent time steps
   // to-do: think of a more robust metric than the mean, something distributional
   // to-do: apply shrinking through a prior, taking into account the sample sizes
-  vector compute_change_magnitudes(matrix histogram_cumulative, vector price_points)
+  vector compute_change_magnitudes(array[,] int histogram_cumulative, vector price_points)
   {
-      int n_time_points = rows(histogram_cumulative);
-      int n_price_points = cols(histogram_cumulative);
+      int n_time_points = dims(histogram_cumulative)[1];
+      int n_price_points = dims(histogram_cumulative)[2];
       vector[n_time_points] deltas;
       
        // No change defined before time 1
@@ -135,6 +141,7 @@ functions {
       vector[T] lp;
 
       for (t in 1:T) {
+        // to-do
           lp[t] = normal_lpdf( change_magnitude[t] | prior_mu, prior_sigma);
       }
   
@@ -155,6 +162,7 @@ functions {
         vector[n_cp] lp_cp = log(cp_probs);
         vector[n_cp] lp1m_cp = log1m(cp_probs);
         vector[n_time_points + 1] marginal_loglik;
+        //vector[n_time_points + 1] marginal_loglik;
     
         // base case: empty segment
         marginal_loglik[1] = 0.0;
@@ -191,13 +199,13 @@ functions {
 data {
   int<lower=1> n_time_points;
   int<lower=1> n_price_points;
-  matrix[n_time_points, n_price_points] histogram;
+  array[n_time_points, n_price_points] int histogram;
   vector[n_price_points] price_points;
 
 }
 
 transformed data {
-  matrix[n_time_points, n_price_points] histogram_cumulative = create_histogram_cumulative(histogram);
+  array[n_time_points, n_price_points] int histogram_cumulative = create_histogram_cumulative(histogram);
   matrix[n_time_points, n_time_points] segments_loglik = compute_segments_loglik(histogram_cumulative);
   vector[n_time_points] change_magnitudes = compute_change_magnitudes(histogram_cumulative, price_points);
 }
@@ -216,7 +224,7 @@ transformed parameters {
 
 model {
   // Optionally add prior over cp_probs_raw if desired, e.g.:
-  cp_probs ~ beta(1, 5);
+  cp_probs ~ beta(1, 1.5);
   prior_change_mu ~ normal(0, .5);
   prior_change_sigma ~ exponential(1);
 
