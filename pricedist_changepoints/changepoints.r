@@ -6,13 +6,13 @@ set.seed(123)
 
 # Define segments
 segments <- data.frame(
-  start_day = c(1, 4),
+  start_day = c(1, 50)*2,
   list_price = c(5, 10),
   discount_price = c(4, 4), # 8.5),
-  discount_probability = c(0, 0)
+  discount_probability = c(.1, .1)
 )
 
-days <- 1:6 #150 #sample(1:150, replace = TRUE)
+days <- sample(1:200, replace = TRUE) #1:(100*2) #150 #
 segment_id <- findInterval(days, segments$start_day)
 
 list_price <- segments$list_price[segment_id]
@@ -28,25 +28,36 @@ df$qty <- 1
 df %<>% group_by(day, price) %>% summarize( qty = sum(qty) )
 # to-do: sort columns by price point
 df %<>% pivot_wider(names_from = price, values_from = qty, values_fill = 0)
-View(df)
 
 quantities <- as.matrix(df[,-1])
 prices <- colnames(quantities) %>% as.numeric()
 quantities %<>% .[,order(prices)]
 prices %<>% sort() 
-View(quantities)
 
-library(cmdstanr)
-
-# Compile the model
-model <- cmdstanr::cmdstan_model("./changepoint_filter_rcpp_v4.stan") #, force_recompile = TRUE)
 
 data_list <- list(
   n_time_points = nrow(quantities),
   n_price_points = ncol(quantities),
-  quantity = quantities,
-  alpha = rep(1.0, ncol(quantities))
+  histogram = quantities,
+  price_points = prices
 )
+
+
+library(cmdstanr)
+
+# Compile the model
+model <- cmdstanr::cmdstan_model("./changepoints_v1.stan") #, force_recompile = TRUE)
+
+# 
+# fit <- model$sample(
+#   data = data_list,
+#   chains = 4,
+#   parallel_chains = 4,
+#   iter_warmup = 500,
+#   iter_sampling = 1000,
+#   seed = 123
+# )
+# fit
 
 opt <- model$optimize(
   data = data_list,
@@ -59,8 +70,8 @@ opt <- model$optimize(
 
 opt
 
-est <- opt$summary("cp_probs_raw")
-plot( df$day, est$estimate )
+est <- opt$summary("cp_probs")
+plot( df$day, c(NA, est$estimate) )
 est %>% arrange(desc(estimate))
 
 mat <- opt$summary("lp_change_prior") #%>% arrange(variable)

@@ -126,7 +126,7 @@ functions {
       // to-do: while we're using a one day window, we retrieve each window twice; this leaves room for optimization
       for (t in 2:n_time_points) {
           vector[n_price_points] histogram_prev = extract_segment_histogram(t - 1, t - 1, histogram_cumulative);
-          vector[n_price_points] histogram_curr = extract_segment_histogram(t,     t,     histogram_cumulative);
+          vector[n_price_points] histogram_curr = extract_segment_histogram(t,     t,    histogram_cumulative);
           deltas[t] = compute_change_magnitude(histogram_prev, histogram_curr, price_points);
       }
   
@@ -142,6 +142,10 @@ functions {
 
       for (t in 1:T) {
         // to-do
+          // to-do: [BUG] Remove or figure out why this prior works in very odd ways: When I set 
+          // all change_magnitude[t] values to 0, the optim results stay nearly the same. When
+          // I set all lp_change_prior values below  to 0, there are more changepoints.
+          // Unsurprisingly, widening the window doesn't change things even one bit.
           lp[t] = normal_lpdf( change_magnitude[t] | prior_mu, prior_sigma);
       }
   
@@ -224,7 +228,7 @@ transformed parameters {
 
 model {
   // Optionally add prior over cp_probs_raw if desired, e.g.:
-  cp_probs ~ beta(1, 1.5);
+  cp_probs ~ beta(1, 5);
   prior_change_mu ~ normal(0, .5);
   prior_change_sigma ~ exponential(1);
 
