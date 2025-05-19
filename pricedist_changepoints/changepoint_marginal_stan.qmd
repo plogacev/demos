@@ -222,7 +222,7 @@ library(cmdstanr)
 set.seed(123)
 
 # Define number of observations, expected average transaction volume, and the number of days to simulate
-n_days <- 650
+n_days <- 650 #350 #
 lambda_qty <- 5
 days <- 1:n_days
 
@@ -295,28 +295,34 @@ histogram_qty <- histogram_qty[,order(price_points)]
 price_points %<>% sort()
 
 # Structure data for Stan input as a list of matrix and metadata dimensions.
+#n = nrow(histogram_qty) # 4 #
+#data_stan_window <- list(
+#  n_time_points = nrow(histogram_qty[1:n,]),
+#  n_price_points = ncol(histogram_qty[1:n,]),
+#  histogram = histogram_qty[1:n,],
+#  price_points = price_points,
+#  window_size = 10
+#  #test_log_ncp_probs = c(0, 0, 0)
+#)
+n = nrow(histogram_qty) #4 #
 data_stan_marginal <- list(
-  n_time_points = nrow(histogram_qty),
-  n_price_points = ncol(histogram_qty),
-  histogram = histogram_qty,
-  price_points = price_points
-)
-n = nrow(histogram_qty) # 4 #
-data_stan_window <- list(
   n_time_points = nrow(histogram_qty[1:n,]),
   n_price_points = ncol(histogram_qty[1:n,]),
   histogram = histogram_qty[1:n,],
   price_points = price_points,
-  window_size = 10
-  #test_log_ncp_probs = c(0, 0, 0)
+  change_window_size = 50,
+  prior_cp_probs_one = 2,
+  prior_min_change_mu = .7,
+  prior_change_mu_center = 1
 )
+
 ```
 
 ## Compile and Run Stan Model
 
 ```{r}
 # Compile the custom Stan model for changepoint marginal likelihood computation
-model <- cmdstan_model("./changepoint_marginal_simple.stan")
+model <- cmdstan_model("./changepoint_marginal_simple_v6.stan")
 
 # Perform optimization-based inference to obtain MAP estimates
 opt <- model$optimize(
@@ -326,14 +332,14 @@ opt <- model$optimize(
   iter = 5000
 )
 
-# opt$summary( c("ncp_sigma", "cp_mode", "cp_scale", "cp_theta") )
+opt$summary( c("cp_probs_one", "prior_change_mu", "prior_change_sigma") )
 # non_cp_prob <- opt$summary("non_cp_prob")
 # matrix(non_cp_prob$estimate, ncol = n, nrow = n) %>% round(2)
 
 ```
 
 ```{r fig.height=3, fig.width=10}
-cp_probs <- opt$summary("cp_probs") %>% .$estimate
+cp_probs <- opt$summary("lp_cp") %>% .$estimate %>% exp()
 #deltas <- opt$summary("deltas") %>% .$estimate
 
 data.frame( idx = seq_along(cp_probs), cp_probs = cp_probs ) %>% #, delta = deltas 

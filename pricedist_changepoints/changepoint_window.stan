@@ -109,6 +109,7 @@ model {
       }
       
       if (t < n_time_points) {
+          // to-do: the differences should probably be modeled as latent variables, but that requires to model the entire distribution over time.
           vector[n_price_points] left_segment_histogram = histograms[2];
           vector[n_price_points] right_segment_histogram = histograms[3];
           real delta = delta_histogram_mean( left_segment_histogram, right_segment_histogram, exp(log_ncp_probs[t]), price_points);

@@ -123,7 +123,7 @@ functions {
        deltas[1] = 0.0;
       
       // Compare each time step with previous
-      // to-do: while we're using a one day window, we retrieve each window twice; this leaves room for optimization
+      // to-do: Compute a weighted local window like in the window algorithm
       for (t in 2:n_time_points) {
           vector[n_price_points] histogram_prev = extract_segment_histogram(t - 1, t - 1, histogram_cumulative);
           vector[n_price_points] histogram_curr = extract_segment_histogram(t,     t,    histogram_cumulative);

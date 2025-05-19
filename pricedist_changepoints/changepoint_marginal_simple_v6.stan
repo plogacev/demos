@@ -169,7 +169,7 @@ functions {
   // Computes change magnitude between adjacent time steps
   // to-do: think of a more robust metric than the mean, something distributional
   // to-do: apply shrinking through a prior, taking into account the sample sizes
-  vector compute_change_magnitudes(array[,] int histogram_cumulative, vector price_points)
+  vector compute_change_magnitudes(array[,] int histogram, array[,] int histogram_cumulative, vector price_points, int window_size, vector lp_ncp)
   {
       int n_time_points = dims(histogram_cumulative)[1];
       int n_price_points = dims(histogram_cumulative)[2];
@@ -177,14 +177,17 @@ functions {
       
       // Compare each time step with previous
       // to-do: Compute a weighted local window like in the window algorithm
-      for (t in 1:n_time_points) {
-          //array[3] vector[n_price_points] local_hist = local_weighted_histograms(int t_mid, int window_size, array[,] int histogram, vector log_ncp_probs);
+      for (t in 1:(n_time_points-1)) {
+          //vector[n_price_points] histogram_prev = extract_segment_histogram(t,   t, histogram_cumulative);
+          //vector[n_price_points] histogram_curr = extract_segment_histogram(t+1, t+1,     histogram_cumulative);
+          
+          array[3] vector[n_price_points] local_hist = local_weighted_histograms(t, window_size, histogram, lp_ncp);
+          vector[n_price_points] left_segment_histogram = local_hist[2];
+          vector[n_price_points] right_segment_histogram = local_hist[3];
 
-          vector[n_price_points] histogram_prev = extract_segment_histogram(t,   t, histogram_cumulative);
-          vector[n_price_points] histogram_curr = extract_segment_histogram(t+1, t+1,     histogram_cumulative);
-          deltas[t] = compute_change_magnitude(histogram_prev, histogram_curr, price_points);
+          deltas[t] = compute_change_magnitude(left_segment_histogram, right_segment_histogram, price_points);
       }
-  
+      
       return deltas;
   }
 
@@ -195,10 +198,10 @@ functions {
       int T = num_elements(change_magnitude);
       vector[T] lp;
 
-      for (t in 1:(T-1)) {
+      for (t in 1:T) {
           lp[t] = normal_lpdf( change_magnitude[t] | prior_mu, prior_sigma); // 
       }
-  
+
       return lp;
   }
 
@@ -210,7 +213,6 @@ functions {
         int n_cp = n_time_points - 1;
 
         vector[n_time_points + 1] marginal_loglik;
-     print("size: ", size(lp_change_prior), " - ", size(lp_cp));
 
         // base case: empty segment
         marginal_loglik[1] = 0.0;
@@ -228,6 +230,7 @@ functions {
                 real lp_path = lp_cp_cur + lp_no_cp_cur;
 
                 real lp_segment_change = t1 > 1 ? lp_change_prior[t1 - 1] : 0.0;
+
                 real ll_segment = segments_loglik[t1, t2 - 1];
     
                 // Total log-prob for this segmentation path
@@ -250,7 +253,11 @@ data {
   int<lower=1> n_price_points;
   array[n_time_points, n_price_points] int histogram;
   vector[n_price_points] price_points;
-
+  
+  int change_window_size;
+  real prior_cp_probs_one;
+  real prior_min_change_mu;
+  real prior_change_mu_center;
 }
 
 transformed data {
@@ -263,22 +270,22 @@ parameters {
   real<lower=0, upper=1> cp_probs_one;
 
   // Prior hyperparameters
-  real<lower=1> prior_change_mu;
+  real<lower=prior_min_change_mu> prior_change_mu;
   real<lower=0.0001> prior_change_sigma;
 }
 
 transformed parameters {
   vector<upper=0>[n_time_points-1] lp_ncp = log1m_exp(lp_cp);
-  vector[n_time_points-1] change_magnitudes = compute_change_magnitudes(histogram_cumulative, price_points);
+  vector[n_time_points-1] change_magnitudes = compute_change_magnitudes(histogram, histogram_cumulative, price_points, change_window_size, lp_ncp);
   vector[n_time_points-1] lp_change_prior = compute_lp_change_prior(change_magnitudes, prior_change_mu, prior_change_sigma);
 }
 
 model {
   // Optionally add prior over cp_probs_raw if desired, e.g.:
-  prior_change_mu ~ normal(0, .5);
+  prior_change_mu ~ normal(prior_change_mu_center, .5);
   prior_change_sigma ~ exponential(1);
 
-  cp_probs_one ~ beta(1, 1.5);
+  cp_probs_one ~ beta(1, prior_cp_probs_one);
   for (i in 1:(n_time_points-1)) {
     target += log_sum_exp( log(cp_probs_one) + lp_cp[i], log1m(cp_probs_one) + lp_ncp[i] );
   }
