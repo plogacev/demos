@@ -1,5 +1,10 @@
 functions {
   
+  real normal_overlap(real mu1, real sigma1, real mu2, real sigma2) {
+      real d = abs(mu1 - mu2) / sqrt(square(sigma1) + square(sigma2));
+      return 2 * normal_cdf(d / 2 | 0, 1) - 1;
+  }
+  
   array[] vector local_weighted_histograms(int t_mid, int window_size, array[,] int histogram, vector log_ncp_probs)
   {
       int n_time_points = dims(histogram)[1];
@@ -9,36 +14,20 @@ functions {
       int window_size_right = min(window_size, n_time_points-t_mid);
 
       real epsilon = 1e-6;
-      vector[n_price_points] complete_segment_histogram = to_vector(histogram[t_mid]) + epsilon;
-      vector[n_price_points] left_segment_histogram = complete_segment_histogram; // = to_vector(histogram[t_mid]);
-      vector[n_price_points] right_segment_histogram; //= to_vector(histogram[t_mid+1]) + epsilon;
+      vector[n_price_points] left_segment_histogram = rep_vector( epsilon, n_price_points );
+      vector[n_price_points] right_segment_histogram = rep_vector( epsilon, n_price_points );
 
       if (window_size_left > 0) {
           real log_weight = 0.0;
-          for (s in 1:window_size_left ) {
+          for ( s in 0:(window_size_left-1) ) {
               int t_cur = t_mid - s;
-              //print("t_cur: ", t_cur);
               log_weight += log_ncp_probs[t_cur];
-              complete_segment_histogram += to_vector(histogram[t_cur]) * exp(log_weight);
-              if ( s <= window_size-1 ) {
-                  left_segment_histogram = complete_segment_histogram;
-              }
+              left_segment_histogram += to_vector(histogram[t_cur]) * exp(log_weight);
           }
       }
-      //print("complete_segment_histogram: ", complete_segment_histogram);
-      //print("left_segment_histogram: ", left_segment_histogram);
 
       if (window_size_right > 0) {
           real log_weight = 0.0;
-          for (s in 1:window_size_right) {
-              int t_cur = t_mid + s;
-              //print("t_cur: ", t_cur);
-              log_weight += log_ncp_probs[t_cur - 1];
-              complete_segment_histogram += to_vector(histogram[t_cur]) * exp(log_weight);
-          }
-
-          right_segment_histogram = rep_vector( epsilon, n_price_points );
-          log_weight = 0.0;
           for (s in 1:window_size_right) {
               int t_cur = t_mid + s;
               right_segment_histogram += to_vector(histogram[t_cur]) * exp(log_weight);
@@ -48,10 +37,9 @@ functions {
           }
       }
 
-      array[3] vector[n_price_points] results;
-      results[1] = complete_segment_histogram;
-      results[2] = left_segment_histogram;
-      results[3] = right_segment_histogram;
+      array[2] vector[n_price_points] results;
+      results[1] = left_segment_histogram;
+      results[2] = right_segment_histogram;
 
       return results;
   }
@@ -178,12 +166,9 @@ functions {
       // Compare each time step with previous
       // to-do: Compute a weighted local window like in the window algorithm
       for (t in 1:(n_time_points-1)) {
-          //vector[n_price_points] histogram_prev = extract_segment_histogram(t,   t, histogram_cumulative);
-          //vector[n_price_points] histogram_curr = extract_segment_histogram(t+1, t+1,     histogram_cumulative);
-          
-          array[3] vector[n_price_points] local_hist = local_weighted_histograms(t, window_size, histogram, lp_ncp);
-          vector[n_price_points] left_segment_histogram = local_hist[2];
-          vector[n_price_points] right_segment_histogram = local_hist[3];
+          array[2] vector[n_price_points] local_hist = local_weighted_histograms(t, window_size, histogram, lp_ncp);
+          vector[n_price_points] left_segment_histogram = local_hist[1];
+          vector[n_price_points] right_segment_histogram = local_hist[2];
 
           deltas[t] = compute_change_magnitude(left_segment_histogram, right_segment_histogram, price_points);
       }
@@ -191,15 +176,20 @@ functions {
       return deltas;
   }
 
+  real changepoint_magnitude_prior(real x, real percentile_5, real percentile_50) {
+    real k = log(19.0) / (percentile_50 - percentile_5); 
+    return -log1p_exp(-k * (x - percentile_50));
+  }
+  
   // Applies change magnitude prior to the change magnitude
   // These priors serve as a penalty or encouragement for placing changepoints
-  vector compute_lp_change_prior(vector change_magnitude, real prior_mu, real prior_sigma)
+  vector compute_lp_change_prior(vector change_magnitude, vector lp_cp, real change_magnitude_min, real change_magnitude_typical)
   {
       int T = num_elements(change_magnitude);
       vector[T] lp;
 
       for (t in 1:T) {
-          lp[t] = normal_lpdf( change_magnitude[t] | prior_mu, prior_sigma); // 
+              lp[t] = changepoint_magnitude_prior(change_magnitude[t], change_magnitude_min, change_magnitude_typical);
       }
 
       return lp;
@@ -256,8 +246,8 @@ data {
   
   int change_window_size;
   real prior_cp_probs_one;
-  real prior_min_change_mu;
-  real prior_change_mu_center;
+  real prior_change_magnitude_min;
+  real prior_change_magnitude_typical;
 }
 
 transformed data {
@@ -267,27 +257,25 @@ transformed data {
 
 parameters {
   vector<upper=0>[n_time_points-1] lp_cp;
-  real<lower=0, upper=1> cp_probs_one;
+  real<upper=0> lperc_cp_one;
 
-  // Prior hyperparameters
-  real<lower=prior_min_change_mu> prior_change_mu;
-  real<lower=0.0001> prior_change_sigma;
+
 }
 
 transformed parameters {
+  real<lower=0> prior_change_skew = 0;
+
   vector<upper=0>[n_time_points-1] lp_ncp = log1m_exp(lp_cp);
   vector[n_time_points-1] change_magnitudes = compute_change_magnitudes(histogram, histogram_cumulative, price_points, change_window_size, lp_ncp);
-  vector[n_time_points-1] lp_change_prior = compute_lp_change_prior(change_magnitudes, prior_change_mu, prior_change_sigma);
+  vector[n_time_points-1] lp_change_prior = compute_lp_change_prior(change_magnitudes, lp_cp, prior_change_magnitude_min, prior_change_magnitude_typical);
+
 }
 
 model {
-  // Optionally add prior over cp_probs_raw if desired, e.g.:
-  prior_change_mu ~ normal(prior_change_mu_center, .5);
-  prior_change_sigma ~ exponential(1);
 
-  cp_probs_one ~ beta(1, prior_cp_probs_one);
+  lperc_cp_one ~ normal(-5, 10);
   for (i in 1:(n_time_points-1)) {
-    target += log_sum_exp( log(cp_probs_one) + lp_cp[i], log1m(cp_probs_one) + lp_ncp[i] );
+    target += log_sum_exp( lperc_cp_one + lp_cp[i], log1m_exp(lperc_cp_one) + lp_ncp[i] );
   }
 
   target += compute_marginal_loglik(lp_cp, lp_ncp, segments_loglik, lp_change_prior);

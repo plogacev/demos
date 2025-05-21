@@ -222,7 +222,7 @@ library(cmdstanr)
 set.seed(123)
 
 # Define number of observations, expected average transaction volume, and the number of days to simulate
-n_days <- 650 #350 #
+n_days <- 650 #250 # #350 #
 lambda_qty <- 5
 days <- 1:n_days
 
@@ -312,8 +312,8 @@ data_stan_marginal <- list(
   price_points = price_points,
   change_window_size = 50,
   prior_cp_probs_one = 2,
-  prior_min_change_mu = .7,
-  prior_change_mu_center = 1
+  prior_change_magnitude_min = 0.1,
+  prior_change_magnitude_typical = 0.5
 )
 
 ```
@@ -332,7 +332,7 @@ opt <- model$optimize(
   iter = 5000
 )
 
-opt$summary( c("cp_probs_one", "prior_change_mu", "prior_change_sigma") )
+opt$summary( c("lperc_cp_one") )
 # non_cp_prob <- opt$summary("non_cp_prob")
 # matrix(non_cp_prob$estimate, ncol = n, nrow = n) %>% round(2)
 
