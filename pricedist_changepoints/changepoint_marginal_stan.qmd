@@ -309,11 +309,11 @@ data_stan_marginal <- list(
   n_time_points = nrow(histogram_qty[1:n,]),
   n_price_points = ncol(histogram_qty[1:n,]),
   histogram = histogram_qty[1:n,],
-  price_points = price_points,
+  price_points = log(price_points),
   change_window_size = 50,
   prior_cp_probs_one = 2,
-  prior_change_magnitude_min = 0.1,
-  prior_change_magnitude_typical = 0.5
+  prior_change_magnitude_min = 0.01,
+  prior_change_magnitude_typical = 0.1
 )
 
 ```
@@ -322,7 +322,7 @@ data_stan_marginal <- list(
 
 ```{r}
 # Compile the custom Stan model for changepoint marginal likelihood computation
-model <- cmdstan_model("./changepoint_marginal_simple_v6.stan")
+model <- cmdstan_model("./changepoint_marginal_simple_v7.stan")
 
 # Perform optimization-based inference to obtain MAP estimates
 opt <- model$optimize(
