@@ -144,7 +144,7 @@ functions {
       real mean_curr = dot_product(histogram_curr, price_points) / sum(histogram_curr);
       
       // Change magnitude is absolute mean difference
-      return abs(mean_prev - mean_curr);
+      return (mean_prev - mean_curr);
   }
 
   // For each time point, calculates a proxy for the magnitude of regime change (currently via mean price difference) between adjacent windows.
@@ -189,24 +189,27 @@ functions {
       return lp;
   }
 
-  real compute_marginal_loglik_path(int t1, int t2, vector lp_cp, vector lp_ncp, matrix segments_loglik, vector lp_change_prior)
+  real compute_marginal_loglik_path(int t1, int t2, int n_time_points, vector lp_cp, vector lp_ncp, vector lp_cp_magnitude_prior, vector lp_ncp_magnitude_prior)
   {
+      real lp_path = 0.0;
+      real lp_segment_change = 0.0;
 
-      real lp_cp_cur = t1 > 1 ? lp_cp[t1 - 1] : 0.0;
-      real lp_no_cp_cur = t1 < (t2 - 1) ? sum(lp_ncp[t1:(t2 - 1)]) : 0.0;
-      real lp_path = lp_cp_cur + lp_no_cp_cur;
-
-      real lp_segment_change = t1 > 1 ? lp_change_prior[t1 - 1] : 0.0;
-
-      real ll_segment = segments_loglik[t1, t2];
+      if ( t2 < n_time_points ) { // terminates with a changepoint at the end of the segment
+          lp_path += lp_cp[t2];
+          lp_segment_change += lp_cp_magnitude_prior[t2];
+      }
+      if ( t1 < t2 ) {  // aggregate all the non-changes before the changepoint 
+          lp_path += sum( lp_ncp[t1:(t2 - 1)] );
+          lp_segment_change += sum( lp_ncp_magnitude_prior[t1:(t2 - 1)] );
+      }
 
       // Total log-prob for this segmentation path
-      return lp_path + ll_segment + lp_segment_change;
+      return lp_path + lp_segment_change;
   }
 
   // Main forward pass algorithm: computes marginal log-likelihood via dynamic programming
   // Each time step t2 accumulates total log-probabilities over all segmentations ending at t2
-  real compute_marginal_loglik(vector lp_cp, vector lp_ncp, matrix segments_loglik, vector lp_change_prior)
+  real compute_marginal_loglik(vector lp_cp, vector lp_ncp, matrix segments_loglik, vector lp_cp_magnitude_prior, vector lp_ncp_magnitude_prior)
   {
         int n_time_points = dims(segments_loglik)[1];
         int n_cp = n_time_points - 1;
@@ -223,20 +226,36 @@ functions {
                 //  retrieve cumulative log-prob up to previous segment
                 real prev_marginal_loglik = (t1 > 1) ? marginal_loglik[t1-1] : 0;
 
-                // log-prob for this segmentation path
-                real cur_path_loglik = compute_marginal_loglik_path(t1, t2, lp_cp, lp_ncp, segments_loglik, lp_change_prior);
+                // compute the log-prob for the presently considered segment
+                real cur_segment_loglik = compute_marginal_loglik_path(t1, t2, n_time_points, lp_cp, lp_ncp, lp_cp_magnitude_prior, lp_ncp_magnitude_prior);
 
-                // log-prob for this segmentation path
-                path_lls[t1] = prev_marginal_loglik + cur_path_loglik;
+                // log-prob for the presently considered segment + the marginal for the paths that may lead to it
+                real cur_path_loglik = cur_segment_loglik + prev_marginal_loglik;
+                
+                // log-prob for the emission
+                real segment_loglik = segments_loglik[t1, t2];
+
+                // log-prob for the current path + emission 
+                path_lls[t1] = cur_path_loglik + segment_loglik;
             }
     
-            // Aggregate over paths to compute marginal for all paths ending at t2
+            // aggregate over all paths leading up to and including t2
             marginal_loglik[t2] = log_sum_exp(path_lls);
         }
     
-        // Final log-marginal likelihood
+        // return the log-likelihood for all the paths leading to the end point
         return marginal_loglik[n_time_points];
   }
+
+// combinations to consider for four points:
+//  o o o o: [1; 4]
+//  o o o_o: [1; 3], [4; 4] 
+//  o o_o o: [1; 2], [3; 4]
+//  o o_o_o: [1; 2], [3; 3], [4; 4]
+//  o_o o o: [1, 1], [2; 4]
+//  o_o o_o: [1; 1], [2; 3], [4; 4]
+//  o_o_o o: [1; 1], [2; 2], [3; 4]
+//  o_o_o_o: [1; 1], [2; 2], [3; 3], [4; 4]
 
 }
 
@@ -260,30 +279,39 @@ transformed data {
 
 parameters {
   real<lower=1> lambda;
-//  real<lower=0.000001> prior_alpha;
-//  real<lower=0.000001> prior_sigma;
+  
+  // real<lower=0> prior_change_ncp_sigma;
+  // real<lower=0.1> prior_change_cp_mu;
+  // real<lower=0> prior_change_cp_sigma;
+  
   vector<upper=0>[n_time_points-1] lp_cp;
-
-
 }
 
 transformed parameters {
   vector<upper=0>[n_time_points-1] lp_ncp = log1m_exp(lp_cp);
   vector[n_time_points-1] change_magnitudes = compute_change_magnitudes(histogram, histogram_cumulative, price_points, change_window_size, lp_ncp);
-  vector[n_time_points-1] lp_change_prior = rep_vector(0.0, n_time_points-1); //compute_lp_change_prior(change_magnitudes, lp_cp, prior_alpha, prior_sigma);
+  //vector[n_time_points-1] lp_change_prior = rep_vector(0.0, n_time_points-1); //compute_lp_change_prior(change_magnitudes, lp_cp, prior_alpha, prior_sigma);
+
+  vector[n_time_points-1] lp_cp_magnitude_prior;
+  vector[n_time_points-1] lp_ncp_magnitude_prior;
+  for ( t in 1:(n_time_points-1) ) {
+      lp_cp_magnitude_prior[t] = normal_lpdf( abs(change_magnitudes[t]) | 0.5, 0.25 );
+      lp_ncp_magnitude_prior[t] = normal_lpdf( abs(change_magnitudes[t]) | 0, 0.25 );
+  }
 }
 
 model {
 
-  //prior_alpha ~ exponential(1);
-  //prior_sigma ~ exponential(1);
+  // prior_change_ncp_sigma ~ exponential(1);
+  // prior_change_cp_sigma ~ exponential(1);
+  // prior_change_cp_mu ~ normal(1, 1);
 
-  lambda ~ normal(356, 100);
+  lambda ~ normal(80, 100);
   real lperc_cp_one = log(1/lambda);
   
   for (i in 1:(n_time_points-1)) {
     target += log_sum_exp( lperc_cp_one + lp_cp[i], log1m_exp(lperc_cp_one) + lp_ncp[i] );
   }
 
-  target += compute_marginal_loglik(lp_cp, lp_ncp, segments_loglik, lp_change_prior);
+  target += compute_marginal_loglik(lp_cp, lp_ncp, segments_loglik, lp_cp_magnitude_prior, lp_ncp_magnitude_prior);
 }
