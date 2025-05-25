@@ -222,8 +222,8 @@ library(cmdstanr)
 set.seed(123)
 
 # Define number of observations, expected average transaction volume, and the number of days to simulate
-n_days <- 650 #250 # #350 #
-lambda_qty <- 5
+n_days <- 50 #200 #650 #250 # #350 #
+lambda_qty <- 500
 days <- 1:n_days
 
 # Specify a sequence of price regimes with distinct list prices, discounts, and discount probabilities
@@ -233,6 +233,13 @@ segments <- data.frame(
         discount_price = c(4,    4,   5,   5,   5, 4.5, 4.5, 4.5),
   discount_probability = c(.25, .1,  .1, .25,  .5, .01, .05, .15)
 )
+
+# segments <- data.frame(
+#              start_day = c(1,  25),
+#             list_price = c(5,    5000),
+#         discount_price = c(4,    4),
+#   discount_probability = c(.0,  .0)
+# )
 
 # Map each day to its corresponding pricing regime
 segment_id <- findInterval(days, segments$start_day)
@@ -262,14 +269,14 @@ select(day, price, qty)
 
 ```
 
-```{r}
+```{r fig.height=2.5, fig.width=8}
 # Visualize the synthetic price trajectories over time.
 # Bubble size reflects quantity sold; red dashed lines denote predefined changepoints.
 p_price <- df %>% 
     filter(qty > 0) %>%
     ggplot(aes(day, price)) + 
-    geom_point(aes(size=qty)) + 
-    theme_bw() + 
+    geom_point(aes(alpha=qty)) + 
+    theme_bw()  + 
     geom_vline(xintercept = segments$start_day[-1], color = "red", linetype = "dashed") 
 
 print(p_price)
@@ -310,7 +317,7 @@ data_stan_marginal <- list(
   n_price_points = ncol(histogram_qty[1:n,]),
   histogram = histogram_qty[1:n,],
   price_points = log(price_points),
-  change_window_size = 50,
+  change_window_size = 20,
   prior_cp_probs_one = 2,
   prior_change_magnitude_min = 0.1,
   prior_change_magnitude_typical = 1
@@ -322,7 +329,7 @@ data_stan_marginal <- list(
 
 ```{r}
 # Compile the custom Stan model for changepoint marginal likelihood computation
-model <- cmdstan_model("./changepoint_marginal_simple_v8.stan")
+model <- cmdstan_model("./changepoint_marginal_simple_v9.stan")
 
 # Perform optimization-based inference to obtain MAP estimates
 opt <- model$optimize(
@@ -332,30 +339,42 @@ opt <- model$optimize(
   iter = 5000
 )
 
-fit <- model$sample(
-  data = data_stan_marginal,
-  #data = data_stan_window,
-  seed = 123,
-  parallel_chains = 4
-)
-
-
-opt$summary( c("lambda") ) #"lperc_cp_one", 
-# non_cp_prob <- opt$summary("non_cp_prob")
-# matrix(non_cp_prob$estimate, ncol = n, nrow = n) %>% round(2)
+opt$summary( c("lambda") )
+#opt$summary( c("lambda", "prior_change_ncp_sigma", "prior_change_cp_mu", "prior_change_cp_sigma") ) #"lperc_cp_one", 
 
 ```
 
-```{r fig.height=3, fig.width=10}
+```{r fig.height=4, fig.width=10}
 cp_probs <- opt$summary("lp_cp") %>% .$estimate %>% exp()
-#deltas <- opt$summary("deltas") %>% .$estimate
+deltas <- opt$summary("change_magnitudes") %>% .$estimate
+#left_avg <- opt$summary("left_avg") %>% .$estimate
+#right_avg <- opt$summary("right_avg") %>% .$estimate
+#deltas_alt <- opt$summary("change_magnitudes_alt") %>% .$estimate
 
-data.frame( idx = seq_along(cp_probs), cp_probs = cp_probs ) %>% #, delta = deltas 
-  #pivot_longer(cp_probs:delta) %>% 
+p_cps <- data.frame( idx = seq_along(cp_probs), cp_probs = cp_probs ) %>% #, delta = deltas 
   ggplot(aes(idx, cp_probs)) + geom_point() + theme_bw() + 
   geom_vline(xintercept = segments$start_day[-1]-1, color = "red", linetype = "dashed") 
 
+p_deltas <- data.frame( idx = seq_along(cp_probs), deltas = deltas ) %>% #, delta = deltas 
+  ggplot(aes(idx, deltas)) + geom_point() + theme_bw() + 
+  geom_vline(xintercept = segments$start_day[-1]-1, color = "red", linetype = "dashed") 
+
+# p_left_avg <- data.frame( idx = seq_along(cp_probs), deltas = left_avg ) %>% #, delta = deltas 
+#   ggplot(aes(idx, left_avg)) + geom_point() + theme_bw() + 
+#   geom_vline(xintercept = segments$start_day[-1]-1, color = "red", linetype = "dashed")  +
+#   geom_hline(yintercept = 0, color = "blue")
+# 
+# p_right_avg <- data.frame( idx = seq_along(cp_probs), deltas = right_avg ) %>% #, delta = deltas 
+#   ggplot(aes(idx, right_avg)) + geom_point() + theme_bw() + 
+#   geom_vline(xintercept = segments$start_day[-1]-1, color = "red", linetype = "dashed")  +
+#   geom_hline(yintercept = 0, color = "blue")
+
+ggpubr::ggarrange(p_price + theme(legend.position = "none"), p_cps, p_deltas, 
+                  #p_left_avg, p_right_avg,
+                  ncol = 1)
+
 ```
+
 ```{r}
 segments %>% mutate( mean = discount_price * discount_probability + list_price * (1-discount_probability) ) %>% .$mean %>% diff()
 ```
