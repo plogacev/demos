@@ -20,4 +20,4 @@ Different implementations of a Bayesian changepoint detection model for detectin
 different pricing regimes. Estimation is based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability
 of discounts.
 
-🔗 [Full Project Details](pricedist_changepoints/README.md)  
+🔗 [Full Project Details](pricedist_changepoints/README.html)
