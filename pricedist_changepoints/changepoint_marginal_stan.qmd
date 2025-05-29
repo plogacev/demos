@@ -12,35 +12,30 @@ engine: knitr
 editor: visual
 ---
 
-
-
-
 ## Summary
 
+*\[This is work in progress.\]*
 
 ### Data and Problem Context
 
-- Each time point $t$ corresponds to a histogram of prices on that day, recording how many units were sold at each price.
-- The goal is to identify when the distribution over prices changes in a meaningful way.
-- In practice, such changes might reflect promotions or price changes.
-- Because real-world sales data is often sparse and noisy, the model uses probabilistic smoothing over changepoint locations, rather than hard thresholding.
+-   Each time point $t$ corresponds to a histogram of prices on that day, recording how many units were sold at each price.
+-   The goal is to identify when the distribution over prices changes in a meaningful way.
+-   In practice, such changes might reflect promotions or price changes.
+-   Because real-world sales data is often sparse and noisy, the model uses probabilistic smoothing over changepoint locations, rather than hard thresholding.
+-   
 
-
-## Generative Changepoint Model 
+## Generative Changepoint Model
 
 After each time point $k \in {1, \ldots, T-1}$, the model assumes that the current price regime either continues or changes. When a regime change occurs after point $k$ ($z_k=1$), we expect the price distribution to differ meaningfully from the previous one. This difference is governed by a prior over **change magnitudes**, parameterized by $\theta$.
 
-- $y_t$: the observed **price histogram** at time $t$; if necessary represented as a vector over discretized price bins.
-- $z_t \in {0, 1}$: binary indicators; $z_t = 1$means changepoint after time $t$
-- $\delta_t$: the **change magnitude**, defined as the absolute difference in expected price between day $t$ and day $t-1$, based on histogram means.
-- $\theta$: Parameters governing the prior distribution over $\delta_t$, i.e., how much the price distribution is expected to change after a regime shift.
+-   $y_t$: the observed **price histogram** at time $t$; if necessary represented as a vector over discretized price bins.
+-   $z_t \in {0, 1}$: binary indicators; $z_t = 1$means changepoint after time $t$
+-   $\delta_t$: the **change magnitude**, defined as the absolute difference in expected price between day $t$ and day $t-1$, based on histogram means.
+-   $\theta$: Parameters governing the prior distribution over $\delta_t$, i.e., how much the price distribution is expected to change after a regime shift.
 
-The sequence of $z$s defines a sequence of contiguous segments:
-$$
+The sequence of $z$s defines a sequence of contiguous segments: $$
 [t_1^{(1)},\, t_2^{(1)}],\quad [t_1^{(2)},\, t_2^{(2)}],\quad \dots,\quad [t_1^{(K)},\, t_2^{(K)}]
 $$
-
-
 
 ## Model Architecture
 
@@ -50,14 +45,12 @@ Because Stan does not support discrete latent variables, we analytically margina
 
 In the complete theoretical model, we would model the distributions associated with the different pricing regimes. However, in practice, doing so requires the estimation of an additional $T \cdot (T-1)/2 \cdot N$ parameters\footnote{$T \cdot (T-1)/2$ is the number of elements in the upper triangualar plus diagonal of a $T \times T$ matrix.}, where $T$ is the number of data points, and $N$ is the number of price points overall. The computational cost of this number of parameters appears prohibitively expensive, which is why the present model is simplified in two points:
 
-  1. We do not explicitly model latent price distributions per segment. Instead, we use the observed histogram proportions directly to compute multinomial segment likelihoods.
-  2. We apply the change magnitude prior not to the underlying distributional shift, but to the distance between the **first and last observed histograms** in a segment — for instance, via the absolute difference in mean prices.
-
+1.  We do not explicitly model latent price distributions per segment. Instead, we use the observed histogram proportions directly to compute multinomial segment likelihoods.
+2.  We apply the change magnitude prior not to the underlying distributional shift, but to the distance between the **first and last observed histograms** in a segment — for instance, via the absolute difference in mean prices.
 
 The model’s components:
 
-- $\pi_t \in (0, 1)$: Probability of a changepoint between $t$ and $t+1$. *(One parameter per time point, total: $T-1$)*
-
+-   $\pi_t \in (0, 1)$: Probability of a changepoint between $t$ and $t+1$. *(One parameter per time point, total:* $T-1$)
 
 The posterior is given by:
 
@@ -76,15 +69,13 @@ $$
 
 The likelihood term integrates over all possible binary changepoint sequences consistent with the per-day probabilities $\\pi_k$, weighting each segmentation path by its segment likelihood and its compatibility with the prior over change magnitudes.
 
+------------------------------------------------------------------------
 
----
+This model estimates changepoints in time-series histogram data by marginalizing over all possible segmentations using a Bayesian framework. The posterior has three main components, each of which is described below.
 
-This model estimates changepoints in time-series histogram data by marginalizing over all possible segmentations using a Bayesian framework.
-The posterior has three main components, each of which is described below.
-
-- $y_k$: Price histogram for time point $k$.
-- $\pi_k$: Probability of a changepoint between $k$ and $k+1$. (Total number of parameters: $\text{number of time points} - 1$)
-- $\theta$: Parameters for the prior over the change magnitude at the changepoint between $k$ and $k+1$.
+-   $y_k$: Price histogram for time point $k$.
+-   $\pi_k$: Probability of a changepoint between $k$ and $k+1$. (Total number of parameters: $\text{number of time points} - 1$)
+-   $\theta$: Parameters for the prior over the change magnitude at the changepoint between $k$ and $k+1$.
 
 $$
 \underbrace{ p(\pi_{1:T-1}, \theta_{1:T} \mid \mathbf{y}_{1:T}) }_{Posterior}
@@ -94,20 +85,17 @@ $$
   \underbrace{ p( \theta_{1:T} ) }_{\text{Prior on the change magnitude}}
 $$
 
-
 ### 1. Prior on Changepoint Probabilities
 
 $$
 p(\boldsymbol{\pi}) = \prod_{t=2}^{T} \text{Beta}(\pi_t \mid \alpha, \beta)
 $$
 
-- Each $\pi_t \in (0, 1)$ represents the probability of a changepoint at time $t$.
-- These are treated as **independent latent variables**, typically with $\alpha = 1$, $\beta = 5$ to encourage sparsity.
-- Instead of sampling changepoint indicators, we integrate over all segmentations using these probabilities.
+-   Each $\pi_t \in (0, 1)$ represents the probability of a changepoint at time $t$.
+-   These are treated as **independent latent variables**, typically with $\alpha = 1$, $\beta = 5$ to encourage sparsity.
+-   Instead of sampling changepoint indicators, we integrate over all segmentations using these probabilities.
 
 This prior controls the **expected segmentation complexity**, preferring longer segments unless data suggests otherwise.
-
-
 
 ### 2. Marginal Likelihood via Dynamic Programming
 
@@ -127,12 +115,9 @@ $$
 \ell_{t_1, t_2} = \log p(\mathbf{y}_{t_1:t_2})
 $$
 
-These are stored in a matrix of size $T \times T$, and computed from:
-- Poisson or multinomial models of the observed histograms
-- Or another domain-specific scoring rule
+These are stored in a matrix of size $T \times T$, and computed from: - Poisson or multinomial models of the observed histograms - Or another domain-specific scoring rule
 
 Only the **upper triangle** (i.e., $t_1 \leq t_2$) is valid.
-
 
 ### 2.2 Dynamic Programming over Segmentations
 
@@ -154,10 +139,7 @@ $$
 L_1 = 0
 $$
 
-and compute forward to \( L_{T+1} \), which becomes the **total marginal log-likelihood** over all segmentation paths. This is added to the Stan `target`.
-
-
-
+and compute forward to ( L\_{T+1} ), which becomes the **total marginal log-likelihood** over all segmentation paths. This is added to the Stan `target`.
 
 ### 3. Prior on Change Magnitudes
 
@@ -169,8 +151,8 @@ $$
 
 This is computed deterministically from the **histogram of price bins** on each day:
 
-- The expectation \( \mathbb{E}[p_t] \) is taken with respect to the empirical price distribution on day $t$.
-- These magnitudes are **deterministic functions of the data**.
+-   The expectation ( \mathbb{E}\[p_t\] ) is taken with respect to the empirical price distribution on day $t$.
+-   These magnitudes are **deterministic functions of the data**.
 
 We place a **Gaussian prior** on these magnitudes:
 
@@ -186,8 +168,7 @@ $$
 
 This introduces flexibility to favor larger or smaller changes in response to domain-specific expectations.
 
-
----
+------------------------------------------------------------------------
 
 ## Final Posterior Expression
 
@@ -201,8 +182,6 @@ $$
 &+ \text{Marginal Log-Likelihood via DP}
 \end{aligned}
 $$
-
-
 
 ## Setup
 
@@ -222,8 +201,8 @@ library(cmdstanr)
 set.seed(123)
 
 # Define number of observations, expected average transaction volume, and the number of days to simulate
-n_days <- 50 #200 #650 #250 # #350 #
-lambda_qty <- 500
+n_days <-650 #200 #650 #200 # #250 # #350 #
+lambda_qty <- 5
 days <- 1:n_days
 
 # Specify a sequence of price regimes with distinct list prices, discounts, and discount probabilities
@@ -282,7 +261,6 @@ p_price <- df %>%
 print(p_price)
 ```
 
-
 ```{r}
 # Aggregate total daily quantities and remove days with no transactions.
 df_nonzero <- df %>%
@@ -329,7 +307,7 @@ data_stan_marginal <- list(
 
 ```{r}
 # Compile the custom Stan model for changepoint marginal likelihood computation
-model <- cmdstan_model("./changepoint_marginal_simple_v9.stan")
+model <- cmdstan_model("./changepoint_mixture_v1.stan")
 
 # Perform optimization-based inference to obtain MAP estimates
 opt <- model$optimize(
@@ -339,12 +317,12 @@ opt <- model$optimize(
   iter = 5000
 )
 
-opt$summary( c("lambda") )
+opt$summary( c("mean_segment_duration", "prior_change_cp_mu", "prior_change_cp_sigma") ) # mean_cp_interval
 #opt$summary( c("lambda", "prior_change_ncp_sigma", "prior_change_cp_mu", "prior_change_cp_sigma") ) #"lperc_cp_one", 
 
 ```
 
-```{r fig.height=4, fig.width=10}
+```{r fig.height=6, fig.width=10}
 cp_probs <- opt$summary("lp_cp") %>% .$estimate %>% exp()
 deltas <- opt$summary("change_magnitudes") %>% .$estimate
 #left_avg <- opt$summary("left_avg") %>% .$estimate
@@ -356,7 +334,7 @@ p_cps <- data.frame( idx = seq_along(cp_probs), cp_probs = cp_probs ) %>% #, del
   geom_vline(xintercept = segments$start_day[-1]-1, color = "red", linetype = "dashed") 
 
 p_deltas <- data.frame( idx = seq_along(cp_probs), deltas = deltas ) %>% #, delta = deltas 
-  ggplot(aes(idx, deltas)) + geom_point() + theme_bw() + 
+  ggplot(aes(idx, abs(deltas) )) + geom_point() + theme_bw() + 
   geom_vline(xintercept = segments$start_day[-1]-1, color = "red", linetype = "dashed") 
 
 # p_left_avg <- data.frame( idx = seq_along(cp_probs), deltas = left_avg ) %>% #, delta = deltas 
@@ -370,7 +348,6 @@ p_deltas <- data.frame( idx = seq_along(cp_probs), deltas = deltas ) %>% #, delt
 #   geom_hline(yintercept = 0, color = "blue")
 
 ggpubr::ggarrange(p_price + theme(legend.position = "none"), p_cps, p_deltas, 
-                  #p_left_avg, p_right_avg,
                   ncol = 1)
 
 ```
@@ -378,7 +355,6 @@ ggpubr::ggarrange(p_price + theme(legend.position = "none"), p_cps, p_deltas,
 ```{r}
 segments %>% mutate( mean = discount_price * discount_probability + list_price * (1-discount_probability) ) %>% .$mean %>% diff()
 ```
-
 
 ## Analyze Estimated Changepoint Probabilities
 
@@ -412,11 +388,8 @@ lp_change_prior <- opt$summary("lp_change_prior") %>% .$estimate
 plot(df_wide$day, lp_change_prior)
 ```
 
-
-
 ## Remarks and Next Steps
 
-- This notebook uses synthetic data; future extensions can incorporate real price time series.
-- Model behavior can be improved by tuning the prior or increasing histogram resolution.
-- Consider extending to hierarchical changepoint models across multiple products or locations.
-
+-   This notebook uses synthetic data; future extensions can incorporate real price time series.
+-   Model behavior can be improved by tuning the prior or increasing histogram resolution.
+-   Consider extending to hierarchical changepoint models across multiple products or locations.
