@@ -83,6 +83,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
    
   <ul>
   <li><a href="#summary" id="toc-summary" class="nav-link active" data-scroll-target="#summary">Summary</a></li>
+  <li><a href="#theoretical-model-assumptions" id="toc-theoretical-model-assumptions" class="nav-link" data-scroll-target="#theoretical-model-assumptions">1. Theoretical Model Assumptions</a></li>
+  <li><a href="#greedy-changepoint-selection" id="toc-greedy-changepoint-selection" class="nav-link" data-scroll-target="#greedy-changepoint-selection">2. Greedy Changepoint Selection</a></li>
   </ul>
 </nav>
 </div>
@@ -121,13 +123,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="summary" class="level2">
 <h2 class="anchored" data-anchor-id="summary">Summary</h2>
-<p>The notebook in this folder present two implementations of a Bayesian changepoint detection model applied to synthetic sales data, where product prices change over time. The goal is to detect structural changes in pricing regime based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability of discounts.</p>
+<p>The notebooks in this folder demonstrate multiple implementations of a Bayesian changepoint detection model applied to synthetic sales data, where product prices change over time. The goal is to detect structural changes in pricing regime based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability of discounts.</p>
 <p>We assume that the distribution of prices for a product on any given day depends on the underlying price regime, which changes infrequently. While the price regime (list price and available discounts) remains stable for extended periods, the daily average price can fluctuate substantially due to varying proportions of discounted sales. Therefore, using the average price within a stable regime as a predictor is likely more informative than using volatile daily average prices.</p>
 <p>The model determines pricing regimes based on daily price histograms (i.e., distributions of sold units across different price points). The first implementation, written in Rcpp, uses discrete parameters. The parameter estimation is carried out using a genetic algorithm implementation in R. The second implementation marginalizes out the discrete segmentation parameters and estimates probabilities of specific changepoint locations. Both are designed to serve as a modular component within larger hierarchical models for retail analytics.</p>
-<ol type="1">
-<li><p>Synthetic Data Generation [<a href="./ts_1_synthetic_data.md">Notebook</a>]</p></li>
-<li><p>Data Analysis [<a href="./ts_2_analysis.md">Notebook</a>]</p></li>
-</ol>
+</section>
+<section id="theoretical-model-assumptions" class="level2">
+<h2 class="anchored" data-anchor-id="theoretical-model-assumptions">1. Theoretical Model Assumptions</h2>
+<p>[<a href="./model_assumptions.html">Notebook</a>]</p>
+</section>
+<section id="greedy-changepoint-selection" class="level2">
+<h2 class="anchored" data-anchor-id="greedy-changepoint-selection">2. Greedy Changepoint Selection</h2>
+<p>[<a href="./changepoint_cp_selection.html">Notebook</a>]</p>
 <!-- -->
 
 </section>
@@ -621,22 +627,22 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary</span></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>The notebook in this folder present two implementations of a Bayesian changepoint detection model applied to synthetic sales data, where product prices change over time. The goal is to detect structural changes in pricing regime based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability of discounts.</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>The notebooks in this folder demonstrate multiple implementations of a Bayesian changepoint detection model applied to synthetic sales data, where product prices change over time. The goal is to detect structural changes in pricing regime based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability of discounts.</span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>We assume that the distribution of prices for a product on any given day depends on the underlying price regime, which changes infrequently. While the price regime (list price and available discounts) remains stable for extended periods, the daily average price can fluctuate substantially due to varying proportions of discounted sales. Therefore, using the average price within a stable regime as a predictor is likely more informative than using volatile daily average prices.</span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>The model determines pricing regimes based on daily price histograms (i.e., distributions of sold units across different price points). </span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>The first implementation, written in Rcpp, uses discrete parameters. The parameter estimation is carried out using a genetic algorithm implementation in R.</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>The second implementation marginalizes out the discrete segmentation parameters and estimates probabilities of specific changepoint locations.</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>Both are designed to serve as a modular component within larger hierarchical models for retail analytics.</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Synthetic Data Generation</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>[<span class="co">[</span><span class="ot">Notebook</span><span class="co">](./ts_1_synthetic_data.md)</span>]</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Data Analysis</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>[<span class="co">[</span><span class="ot">Notebook</span><span class="co">](./ts_2_analysis.md)</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>The model determines pricing regimes based on daily price histograms (i.e., distributions of sold units across different price points).</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>The first implementation, written in Rcpp, uses discrete parameters. The parameter estimation is carried out using a genetic algorithm implementation in R. The second implementation marginalizes out the discrete segmentation parameters and estimates probabilities of specific changepoint locations.</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>Both are designed to serve as a modular component within larger hierarchical models for retail analytics.</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Theoretical Model Assumptions </span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>[<span class="co">[</span><span class="ot">Notebook</span><span class="co">](./model_assumptions.html)</span>]</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Greedy Changepoint Selection</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>[<span class="co">[</span><span class="ot">Notebook</span><span class="co">](./changepoint_cp_selection.html)</span>]</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 

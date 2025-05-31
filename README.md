@@ -2,7 +2,7 @@
 
 ## 1. Time Series Elasticity Analysis
 
-**Demonstration of a NumPyro-based Bayesian time series model for sales data analysis.**
+**NumPyro-based Bayesian time series model for sales data analysis.**
 A synthetic sales dataset is constructed with latent growth, seasonal patterns, and a random walk component to simulate external influences.
 Sales are modeled as a Poisson process with price elasticity effects, ensuring realistic demand shifts. A flexible Bayesian model, 
 implemented in numpyro, is used to estimate the underlying components of the sales time series. Inference is performed using MCMC sampling. 
