@@ -202,8 +202,7 @@ set.seed(123)
 
 # Define number of observations, expected average transaction volume, and the number of days to simulate
 n_days <-650 #200 #650 #200 # #250 # #350 #
-lambda_qty <- 5
-days <- 1:n_days
+lambda_qty <- 50
 
 # Specify a sequence of price regimes with distinct list prices, discounts, and discount probabilities
 segments <- data.frame(
@@ -219,32 +218,6 @@ segments <- data.frame(
 #         discount_price = c(4,    4),
 #   discount_probability = c(.0,  .0)
 # )
-
-# Map each day to its corresponding pricing regime
-segment_id <- findInterval(days, segments$start_day)
-
-# Generate a synthetic transactional record with total quantity and price assignment
-df <- data.frame(
-    day = days, 
-    list_price = segments$list_price[segment_id],
-    discount_price = segments$discount_price[segment_id],
-    discount_probability = segments$discount_probability[segment_id],
-    qty_total = rpois(n_days, lambda_qty)
-) %>% 
-mutate(
-    qty_discount = rbinom(n_days, qty_total, discount_probability),
-    qty_list_price = qty_total - qty_discount
-) %>% 
-select(-discount_probability, -qty_total) %>%
-pivot_longer(
-    cols = starts_with("qty_"),
-    names_to = "type",
-    values_to = "qty"
-) %>%
-mutate(
-    price = if_else(type == "qty_discount", discount_price, list_price)
-) %>%
-select(day, price, qty)
 
 ```
 
@@ -262,22 +235,6 @@ print(p_price)
 ```
 
 ```{r}
-# Aggregate total daily quantities and remove days with no transactions.
-df_nonzero <- df %>%
-  mutate( total_qty = sum(qty), .by = "day" ) %>%
-  filter(total_qty > 0) %>%
-  select(-total_qty)
-
-# Reshape the cleaned transactional data into a price-by-day matrix format.
-# Each row corresponds to a day; each column to a discretized price point.
-df_wide <- df_nonzero %>% 
-  pivot_wider(names_from = "price", values_from = "qty", values_fill = 0)
-
-# Convert to a numeric matrix and enforce price column ordering.
-histogram_qty <- as.matrix(df_wide[,-1])
-price_points <- as.numeric(colnames(histogram_qty))
-histogram_qty <- histogram_qty[,order(price_points)]
-price_points %<>% sort()
 
 # Structure data for Stan input as a list of matrix and metadata dimensions.
 #n = nrow(histogram_qty) # 4 #
