@@ -21,3 +21,13 @@ different pricing regimes. Estimation is based on price histograms over time whe
 of discounts.
 
 🔗 [Full Project Details](pricedist_changepoints/README.html)
+
+## 3. Price Distribution Elicitation from an LLM
+
+**Two-stage price distribution elicitation pipeline.**
+Demonstrates a two-stage pipeline that uses large language models (LLMs) to infer reasonable price distributions for consumer products when competitor pricing data is insufficient or historical sales data is sparse.
+It extracts structured product attributes from free-text titles and descriptions (via GPT-3.5-turbo), then uses GPT-4o to elicit a retail price range (minimum, typical, maximum) based
+on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre.
+The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.
+
+🔗 [Full Project Details](price_distribution_elicitation/price_distribution_elicitation.html)
