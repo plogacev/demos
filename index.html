@@ -130,7 +130,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="time-series-elasticity-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="time-series-elasticity-analysis">1. Time Series Elasticity Analysis</h2>
 <p><strong>NumPyro-based Bayesian time series model for sales data analysis.</strong> A synthetic sales dataset is constructed with latent growth, seasonal patterns, and a random walk component to simulate external influences. Sales are modeled as a Poisson process with price elasticity effects, ensuring realistic demand shifts. A flexible Bayesian model, implemented in numpyro, is used to estimate the underlying components of the sales time series. Inference is performed using MCMC sampling. Despite structural differences, the model is flexible enough to meaningfully separate conceptually distinct components of the sales time series, such as trend, monthly and weekly seasonality, as well as price elasticity of demand. The results confirm that the model successfully reconstructs these components, demonstrating its suitability for the analysis of sales data.</p>
-<p>🔗 <a href="time_series_analysis_1/README.md">Project Documentation + Code</a></p>
+<p>🔗 <a href="time_series_analysis_1">Project Documentation + Code</a></p>
 </section>
 <section id="distribution-based-change-point-detection" class="level2">
 <h2 class="anchored" data-anchor-id="distribution-based-change-point-detection">2. Distribution-based Change Point Detection</h2>
@@ -633,43 +633,27 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="an">editor:</span><span class="co"> visual</span></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>*This document is best viewed [here](https://github.com/plogacev/case_studies) in HTML rather than in markdown format.*</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>*This document is best viewed [here](https://github.com/plogacev/case_studies) in HTML rather than in markdown format.*</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu"># Experimental Data Science Projects</span></span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu"># Experimental Data Science Projects </span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Time Series Elasticity Analysis</span></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Time Series Elasticity Analysis</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>**NumPyro-based Bayesian time series model for sales data analysis.** A synthetic sales dataset is constructed with latent growth, seasonal patterns, and a random walk component to simulate external influences. Sales are modeled as a Poisson process with price elasticity effects, ensuring realistic demand shifts. A flexible Bayesian model, implemented in numpyro, is used to estimate the underlying components of the sales time series. Inference is performed using MCMC sampling. Despite structural differences, the model is flexible enough to meaningfully separate conceptually distinct components of the sales time series, such as trend, monthly and weekly seasonality, as well as price elasticity of demand. The results confirm that the model successfully reconstructs these components, demonstrating its suitability for the analysis of sales data.</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>**NumPyro-based Bayesian time series model for sales data analysis.**</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>A synthetic sales dataset is constructed with latent growth, seasonal patterns, and a random walk component to simulate external influences.</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>Sales are modeled as a Poisson process with price elasticity effects, ensuring realistic demand shifts. A flexible Bayesian model, </span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>implemented in numpyro, is used to estimate the underlying components of the sales time series. Inference is performed using MCMC sampling. </span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>Despite structural differences, the model is flexible enough to meaningfully separate conceptually distinct components of </span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>the sales time series, such as trend, monthly and weekly seasonality, as well as price elasticity of demand. </span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>The results confirm that the model successfully reconstructs these components, demonstrating its suitability for the analysis of sales data.</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](time_series_analysis_1)</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Distribution-based Change Point Detection</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>**Bayesian changepoint model for detecting structural changes in pricing regimes.** Different implementations of a Bayesian changepoint detection model for detecting structural changes in the data-generating process, such as different pricing regimes. Estimation is based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability of discounts.</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](pricedist_changepoints)</span></span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](time_series_analysis_1/README.md)</span>  </span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Price Distribution Elicitation from an LLM</span></span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Distribution-based Change Point Detection</span></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>**Bayesian changepoint model for detecting structural changes in pricing regimes.**</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>Different implementations of a Bayesian changepoint detection model for detecting structural changes in the data-generating process, such as </span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>different pricing regimes. Estimation is based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>of discounts.</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](pricedist_changepoints)</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Price Distribution Elicitation from an LLM</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>**Two-stage price distribution elicitation pipeline using GhatGPT.**</span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>Demonstrates a two-stage pipeline that uses large language models (LLMs) to elicit reasonable price distributions for consumer products when competitor pricing data is insufficient or historical sales data is sparse.</span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>It extracts structured product attributes from free-text titles and descriptions (via GPT-3.5-turbo), then uses GPT-4o to elicit a retail price range (minimum, typical, maximum) based</span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre.</span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.</span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](price_distribution_elicitation)</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>**Two-stage price distribution elicitation pipeline using GhatGPT.** Demonstrates a two-stage pipeline that uses large language models (LLMs) to elicit reasonable price distributions for consumer products when competitor pricing data is insufficient or historical sales data is sparse. It extracts structured product attributes from free-text titles and descriptions (via GPT-3.5-turbo), then uses GPT-4o to elicit a retail price range (minimum, typical, maximum) based on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre. The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](price_distribution_elicitation)</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
