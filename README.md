@@ -1,3 +1,6 @@
+*This document is best viewed [here](https://github.com/plogacev/case_studies) in HTML rather than in markdown format.*
+
+
 # Self-Contained Data Science Projects 
 
 ## 1. Time Series Elasticity Analysis
