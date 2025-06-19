@@ -26,4 +26,4 @@ The model determines pricing regimes based on daily price histograms (i.e., dist
 
 ## 2. Greedy Changepoint Selection
 
-\[[Notebook](./changepoint_cp_selection.html)\]
+\[[Notebook](./greedy_cp_selection.html)\]
