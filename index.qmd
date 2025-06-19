@@ -48,4 +48,4 @@ It extracts structured product attributes from free-text titles and descriptions
 on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre.
 The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.
 
-🔗 [Project Documentation + Code](price_distribution_elicitation/price_distribution_elicitation.html)
+🔗 [Project Documentation + Code](price_distribution_elicitation)
