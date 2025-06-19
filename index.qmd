@@ -1,5 +1,5 @@
 ---
-title: "Self-Contained Data Science Projects"
+title: "Experimental Data Science Projects"
 author: "Pavel Logačev"
 date: "r Sys.Date()"
 format:
@@ -16,7 +16,7 @@ editor: visual
 *This document is best viewed [here](https://github.com/plogacev/case_studies) in HTML rather than in markdown format.*
 
 
-# Self-Contained Data Science Projects 
+# Experimental Data Science Projects 
 
 ## 1. Time Series Elasticity Analysis
 
