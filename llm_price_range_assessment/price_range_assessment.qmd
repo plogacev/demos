@@ -20,12 +20,17 @@ from tqdm import tqdm
 import math
 import itertools
 import openai
+from dotenv import load_dotenv
 
 from openai import OpenAI
 from joblib import Memory
 
+# 
+load_dotenv()
+
 # save the results from the LLM model to a cache
-memory = Memory(location="cache", verbose=0)
+memory_summary = Memory(location="cache_summary", verbose=0)
+memory_pricing = Memory(location="cache_pricing", verbose=0)
 ```
 
 ## Summary
@@ -87,40 +92,14 @@ products
 
 ```
 
-```{python eval=FALSE}
-if False:
-  #%pip install transformers sentencepiece torch
-  from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-  import torch
-  
-  model_name = "google/mt5-small"
-  tokenizer = AutoTokenizer.from_pretrained(model_name)
-  model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-  
-  def summarize_mt5(title, description, lang="es", max_tokens=128):
-      prompt = f"""
-      Extract the following information from the product description:
-      - Product Type
-      - Key Components
-      - Materials
-      - Intended Use
-      - Target User
-      - Quantity or Unit Size
-  
-      Product Title: {title}
-      Product Description: {description}
-      """
-      inputs = tokenizer(prompt.strip(), return_tensors="pt", truncation=True)
-      with torch.no_grad():
-          outputs = model.generate(**inputs, max_new_tokens=max_tokens)
-      return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-```
-
 ```{python}
+<<<<<<< HEAD
 
 client = OpenAI(api_key="")
 
+=======
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+>>>>>>> e27e84e (Removed key)
 ```
 
 ```{python}
@@ -186,7 +165,7 @@ def make_product_blocks(product_list):
                       """)
     return "\n\n".join(blocks).strip()
 
-@memory.cache(ignore=["client"])
+@memory_summary.cache(ignore=["client"])
 def summarize_product_descriptions_batch(client, product_list):
         """ """
         product_blocks = make_product_blocks(product_list)
@@ -217,7 +196,7 @@ def summarize_product_descriptions_batch(client, product_list):
         return reply
 
 
-@memory.cache(ignore=["client"])
+@memory_summary.cache(ignore=["client"])
 def summarize_product_descriptions(client, product_list, batch_size=10):
     """ """
     num_batches = math.ceil(len(product_list) / batch_size)
@@ -231,7 +210,7 @@ def summarize_product_descriptions(client, product_list, batch_size=10):
 
     return results
   
-#@memory.cache(ignore=["client"], verbose=10)
+#@memory_summary.cache(ignore=["client"], verbose=10)
 #def summarize_product_descriptions_batch(client, product_list):
 #  print("called")
 #  return {}
@@ -244,37 +223,13 @@ product_list = products[['product_id', 'product_title', 'product_description']].
 product_summaries_1 = summarize_product_descriptions(client, product_list[0:2660], batch_size = 10)
 product_summaries_2 = summarize_product_descriptions(client, product_list[2660:], batch_size = 10)
 
-if False:
-  summarize_product_descriptions(client, product_list[2660:2670], batch_size = 10)
-  
-  x1 = summarize_product_descriptions_batch(client, product_list[2660:2665])
-  x1 = re.sub(r"^```(?:python)?\s*|\s*```$", "", x1.strip(), flags=re.IGNORECASE)
-  pprint.pprint( ast.literal_eval(x1) )
-  
-  x2 = summarize_product_descriptions_batch(client, product_list[2665:2670])
-  print(x)
-  
-  import pprint
-  pprint.pprint(x)
-  
-  x = re.sub(r"^```(?:python)?\s*|\s*```$", "", x.strip(), flags=re.IGNORECASE)
-  ast.literal_eval(x)
-
+product_summaries = []
+product_summaries.extend(product_summaries_1)
+product_summaries.extend(product_summaries_2)
 
 ```
 
 ```{python}
-
-product_list[2660:2669]
-
-```
-
-```{python}
-
-pprint.pprint(product_summaries)
-pl.DataFrame(product_summaries[19:21])
-
-pprint.pprint(product_summaries[19:21])
 
 # Coerce lists to strings for compatibility
 product_summaries_uniform = [
@@ -320,21 +275,21 @@ Return a syntacticly valid python list of lists, each in the following format:
 Do not include explanations, citations, or formatting beyond this structure.
 """.strip()
 
-#If you cannot find enough relevant price data or the product is not typically sold online in this region, return:
-#[product_id, None, None, None]
-
 ```
 
 ```{python}
+
+@memory_pricing.cache(ignore=["client"])
 def retrieve_price_ranges_batch(client, product_summary, currency, year, region):
     """ """
     prompt = prompt_template_price_range.format(
-        product_summary=product_summary,
+        product_summary=pprint.pformat(product_summary),
         currency=currency,
         year=year,
         region=region,
     )
-    prompt = re.sub(r'\s+', ' ', prompt)
+    #prompt = re.sub(r'\s+', ' ', prompt)
+    #print(prompt)
     
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -352,19 +307,18 @@ def retrieve_price_ranges_batch(client, product_summary, currency, year, region)
         results.append( cur_result )
     
     return results
-  
 
-def retrieve_price_ranges(client, product_list, currency, year, region, batch_size=10):
+
+@memory_pricing.cache(ignore=["client"])
+def retrieve_price_ranges(client, product_summary, currency, year, region, batch_size=10):
     """ """
-    num_batches = math.ceil(len(product_list) / batch_size)
-    product_list_it = iter(product_list)
+    num_batches = math.ceil(len(product_summary) / batch_size)
+    product_list_it = iter(product_summary)
     
     results = []
     for _ in tqdm(range(num_batches), desc="Retrieving price ranges"):
         product_batch = list(itertools.islice(product_list_it, batch_size))
-        product_summary = summarize_product_descriptions(client, product_batch, model="gpt-3.5-turbo")
-        print(product_summary)
-        result_batch = retrieve_price_ranges_batch(client, product_summary, currency, year, region)
+        result_batch = retrieve_price_ranges_batch(client, product_batch, currency, year, region)
         results.extend(result_batch)
 
     return results
@@ -378,19 +332,11 @@ region = "Mexico"
 ```
 
 ```{python}
-n = 200
-i_start = 0
-i_end = i_start + n
-batch_size = 10
 
-cur_product_list_complete = products[i_start:i_end].to_dicts()
-cur_product_list = products[['product_id', 'product_title', 'product_description']][i_start:i_end].to_dicts()
-len(cur_product_list)
-
-estimates = retrieve_price_ranges(client, cur_product_list, currency, year, region, batch_size = batch_size)
-estimates = pl.DataFrame( estimates )
-estimates = estimates.with_columns( pl.col("product_id").cast(pl.Int128) ) 
-len(estimates)
+estimates = retrieve_price_ranges(client, product_summaries_uniform, currency, year, region, batch_size = 15)
+#estimates = pl.DataFrame( estimates )
+#estimates = estimates.with_columns( pl.col("product_id").cast(pl.Int128) ) 
+#len(estimates)
 ```
 
 ```{python}
