@@ -8,7 +8,7 @@
 
 <meta name="author" content="Pavel Logačev">
 
-<title>Self-Contained Data Science Projects</title>
+<title>Experimental Data Science Projects</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#self-contained-data-science-projects" id="toc-self-contained-data-science-projects" class="nav-link active" data-scroll-target="#self-contained-data-science-projects">Self-Contained Data Science Projects</a>
+  <li><a href="#experimental-data-science-projects" id="toc-experimental-data-science-projects" class="nav-link active" data-scroll-target="#experimental-data-science-projects">Experimental Data Science Projects</a>
   <ul class="collapse">
   <li><a href="#time-series-elasticity-analysis" id="toc-time-series-elasticity-analysis" class="nav-link" data-scroll-target="#time-series-elasticity-analysis">1. Time Series Elasticity Analysis</a></li>
   <li><a href="#distribution-based-change-point-detection" id="toc-distribution-based-change-point-detection" class="nav-link" data-scroll-target="#distribution-based-change-point-detection">2. Distribution-based Change Point Detection</a></li>
@@ -95,7 +95,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<div class="quarto-title-block"><div><h1 class="title">Self-Contained Data Science Projects</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+<div class="quarto-title-block"><div><h1 class="title">Experimental Data Science Projects</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
 </div>
 
 
@@ -125,22 +125,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 <p><em>This document is best viewed <a href="https://github.com/plogacev/case_studies">here</a> in HTML rather than in markdown format.</em></p>
-<section id="self-contained-data-science-projects" class="level1">
-<h1>Self-Contained Data Science Projects</h1>
+<section id="experimental-data-science-projects" class="level1">
+<h1>Experimental Data Science Projects</h1>
 <section id="time-series-elasticity-analysis" class="level2">
 <h2 class="anchored" data-anchor-id="time-series-elasticity-analysis">1. Time Series Elasticity Analysis</h2>
 <p><strong>NumPyro-based Bayesian time series model for sales data analysis.</strong> A synthetic sales dataset is constructed with latent growth, seasonal patterns, and a random walk component to simulate external influences. Sales are modeled as a Poisson process with price elasticity effects, ensuring realistic demand shifts. A flexible Bayesian model, implemented in numpyro, is used to estimate the underlying components of the sales time series. Inference is performed using MCMC sampling. Despite structural differences, the model is flexible enough to meaningfully separate conceptually distinct components of the sales time series, such as trend, monthly and weekly seasonality, as well as price elasticity of demand. The results confirm that the model successfully reconstructs these components, demonstrating its suitability for the analysis of sales data.</p>
-<p>🔗 <a href="time_series_analysis_1/README.md">Full Project Details</a></p>
+<p>🔗 <a href="time_series_analysis_1/README.md">Project Documentation + Code</a></p>
 </section>
 <section id="distribution-based-change-point-detection" class="level2">
 <h2 class="anchored" data-anchor-id="distribution-based-change-point-detection">2. Distribution-based Change Point Detection</h2>
 <p><strong>Bayesian changepoint model for detecting structural changes in pricing regimes.</strong> Different implementations of a Bayesian changepoint detection model for detecting structural changes in the data-generating process, such as different pricing regimes. Estimation is based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability of discounts.</p>
-<p>🔗 <a href="pricedist_changepoints/README.html">Full Project Details</a></p>
+<p>🔗 <a href="pricedist_changepoints/README.html">Project Documentation + Code</a></p>
 </section>
 <section id="price-distribution-elicitation-from-an-llm" class="level2">
 <h2 class="anchored" data-anchor-id="price-distribution-elicitation-from-an-llm">3. Price Distribution Elicitation from an LLM</h2>
-<p><strong>Two-stage price distribution elicitation pipeline.</strong> Demonstrates a two-stage pipeline that uses large language models (LLMs) to infer reasonable price distributions for consumer products when competitor pricing data is insufficient or historical sales data is sparse. It extracts structured product attributes from free-text titles and descriptions (via GPT-3.5-turbo), then uses GPT-4o to elicit a retail price range (minimum, typical, maximum) based on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre. The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.</p>
-<p>🔗 <a href="price_distribution_elicitation/price_distribution_elicitation.html">Full Project Details</a></p>
+<p><strong>Two-stage price distribution elicitation pipeline using GhatGPT.</strong> Demonstrates a two-stage pipeline that uses large language models (LLMs) to infer reasonable price distributions for consumer products when competitor pricing data is insufficient or historical sales data is sparse. It extracts structured product attributes from free-text titles and descriptions (via GPT-3.5-turbo), then uses GPT-4o to elicit a retail price range (minimum, typical, maximum) based on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre. The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.</p>
+<p>🔗 <a href="price_distribution_elicitation/price_distribution_elicitation.html">Project Documentation + Code</a></p>
 <!-- -->
 
 </section>
@@ -620,7 +620,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Self-Contained Data Science Projects"</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Experimental Data Science Projects"</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Pavel Logačev"</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "r Sys.Date()"</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
@@ -637,7 +637,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>*This document is best viewed [here](https://github.com/plogacev/case_studies) in HTML rather than in markdown format.*</span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu"># Self-Contained Data Science Projects </span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu"># Experimental Data Science Projects </span></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Time Series Elasticity Analysis</span></span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
@@ -649,7 +649,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>the sales time series, such as trend, monthly and weekly seasonality, as well as price elasticity of demand. </span>
 <span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>The results confirm that the model successfully reconstructs these components, demonstrating its suitability for the analysis of sales data.</span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Full Project Details</span><span class="co">](time_series_analysis_1/README.md)</span>  </span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](time_series_analysis_1/README.md)</span>  </span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Distribution-based Change Point Detection</span></span>
@@ -659,17 +659,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>different pricing regimes. Estimation is based on price histograms over time when the pricing of a product undergoes a meaningful change — such as list price changes, promotions, or changes in the availability</span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>of discounts.</span>
 <span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Full Project Details</span><span class="co">](pricedist_changepoints/README.html)</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](pricedist_changepoints/README.html)</span></span>
 <span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Price Distribution Elicitation from an LLM</span></span>
 <span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>**Two-stage price distribution elicitation pipeline.**</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>**Two-stage price distribution elicitation pipeline using GhatGPT.**</span>
 <span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>Demonstrates a two-stage pipeline that uses large language models (LLMs) to infer reasonable price distributions for consumer products when competitor pricing data is insufficient or historical sales data is sparse.</span>
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>It extracts structured product attributes from free-text titles and descriptions (via GPT-3.5-turbo), then uses GPT-4o to elicit a retail price range (minimum, typical, maximum) based</span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>on those attributes and regional context. The elicited price ranges are used to reverse-engineer log-normal distribution parameters, which are validated against actual prices scraped from Mercado Libre.</span>
 <span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>The result is a calibrated, probabilistic estimate of product pricing grounded in LLM-elicited knowledge.</span>
 <span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Full Project Details</span><span class="co">](price_distribution_elicitation/price_distribution_elicitation.html)</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>🔗 <span class="co">[</span><span class="ot">Project Documentation + Code</span><span class="co">](price_distribution_elicitation/price_distribution_elicitation.html)</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 
