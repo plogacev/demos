@@ -490,168 +490,19 @@ az.summary(m_fit, var_names=["sigma", "log_state_delta"], filter_vars="like")
 
 <div>
 
-<table>
-<colgroup>
-<col style="width: 11%" />
-<col style="width: 9%" />
-<col style="width: 9%" />
-<col style="width: 9%" />
-<col style="width: 9%" />
-<col style="width: 9%" />
-<col style="width: 9%" />
-<col style="width: 9%" />
-<col style="width: 10%" />
-<col style="width: 9%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th><p></p></th>
-<th><p>mean</p></th>
-<th><p>sd</p></th>
-<th><p>hdi_3%</p></th>
-<th><p>hdi_97%</p></th>
-<th><p>mcse_mean</p></th>
-<th><p>mcse_sd</p></th>
-<th><p>ess_bulk</p></th>
-<th><p>ess_tail</p></th>
-<th><p>r_hat</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><p>log_sigma</p></td>
-<td><p>-2.818</p></td>
-<td><p>0.102</p></td>
-<td><p>-3.017</p></td>
-<td><p>-2.633</p></td>
-<td><p>0.003</p></td>
-<td><p>0.001</p></td>
-<td><p>1269.0</p></td>
-<td><p>1730.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="even">
-<td><p>log_state_delta0</p></td>
-<td><p>0.317</p></td>
-<td><p>0.934</p></td>
-<td><p>-1.507</p></td>
-<td><p>1.995</p></td>
-<td><p>0.017</p></td>
-<td><p>0.014</p></td>
-<td><p>3154.0</p></td>
-<td><p>2722.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="odd">
-<td><p>log_state_delta1</p></td>
-<td><p>0.295</p></td>
-<td><p>0.890</p></td>
-<td><p>-1.330</p></td>
-<td><p>1.975</p></td>
-<td><p>0.015</p></td>
-<td><p>0.014</p></td>
-<td><p>3355.0</p></td>
-<td><p>2536.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="even">
-<td><p>log_state_delta2</p></td>
-<td><p>0.198</p></td>
-<td><p>0.892</p></td>
-<td><p>-1.401</p></td>
-<td><p>1.919</p></td>
-<td><p>0.017</p></td>
-<td><p>0.012</p></td>
-<td><p>2878.0</p></td>
-<td><p>2984.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="odd">
-<td><p>log_state_delta3</p></td>
-<td><p>-0.512</p></td>
-<td><p>0.911</p></td>
-<td><p>-2.181</p></td>
-<td><p>1.209</p></td>
-<td><p>0.017</p></td>
-<td><p>0.013</p></td>
-<td><p>2917.0</p></td>
-<td><p>3090.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="even">
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-<td><p>...</p></td>
-</tr>
-<tr class="odd">
-<td><p>log_state_delta194</p></td>
-<td><p>0.587</p></td>
-<td><p>0.639</p></td>
-<td><p>-0.633</p></td>
-<td><p>1.794</p></td>
-<td><p>0.012</p></td>
-<td><p>0.010</p></td>
-<td><p>2632.0</p></td>
-<td><p>2667.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="even">
-<td><p>log_state_delta195</p></td>
-<td><p>-0.720</p></td>
-<td><p>0.667</p></td>
-<td><p>-1.976</p></td>
-<td><p>0.519</p></td>
-<td><p>0.013</p></td>
-<td><p>0.009</p></td>
-<td><p>2615.0</p></td>
-<td><p>2788.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="odd">
-<td><p>log_state_delta196</p></td>
-<td><p>-0.694</p></td>
-<td><p>0.652</p></td>
-<td><p>-1.964</p></td>
-<td><p>0.513</p></td>
-<td><p>0.013</p></td>
-<td><p>0.010</p></td>
-<td><p>2628.0</p></td>
-<td><p>2524.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="even">
-<td><p>log_state_delta197</p></td>
-<td><p>-0.898</p></td>
-<td><p>0.784</p></td>
-<td><p>-2.312</p></td>
-<td><p>0.631</p></td>
-<td><p>0.013</p></td>
-<td><p>0.012</p></td>
-<td><p>3482.0</p></td>
-<td><p>3061.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-<tr class="odd">
-<td><p>sigma</p></td>
-<td><p>0.060</p></td>
-<td><p>0.006</p></td>
-<td><p>0.049</p></td>
-<td><p>0.072</p></td>
-<td><p>0.000</p></td>
-<td><p>0.000</p></td>
-<td><p>1269.0</p></td>
-<td><p>1730.0</p></td>
-<td><p>1.0</p></td>
-</tr>
-</tbody>
-</table>
+|   | mean | sd | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
+|----|----|----|----|----|----|----|----|----|----|
+| log_sigma | -2.818 | 0.102 | -3.017 | -2.633 | 0.003 | 0.001 | 1269.0 | 1730.0 | 1.0 |
+| log_state_delta0 | 0.317 | 0.934 | -1.507 | 1.995 | 0.017 | 0.014 | 3154.0 | 2722.0 | 1.0 |
+| log_state_delta1 | 0.295 | 0.890 | -1.330 | 1.975 | 0.015 | 0.014 | 3355.0 | 2536.0 | 1.0 |
+| log_state_delta2 | 0.198 | 0.892 | -1.401 | 1.919 | 0.017 | 0.012 | 2878.0 | 2984.0 | 1.0 |
+| log_state_delta3 | -0.512 | 0.911 | -2.181 | 1.209 | 0.017 | 0.013 | 2917.0 | 3090.0 | 1.0 |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| log_state_delta194 | 0.587 | 0.639 | -0.633 | 1.794 | 0.012 | 0.010 | 2632.0 | 2667.0 | 1.0 |
+| log_state_delta195 | -0.720 | 0.667 | -1.976 | 0.519 | 0.013 | 0.009 | 2615.0 | 2788.0 | 1.0 |
+| log_state_delta196 | -0.694 | 0.652 | -1.964 | 0.513 | 0.013 | 0.010 | 2628.0 | 2524.0 | 1.0 |
+| log_state_delta197 | -0.898 | 0.784 | -2.312 | 0.631 | 0.013 | 0.012 | 3482.0 | 3061.0 | 1.0 |
+| sigma | 0.060 | 0.006 | 0.049 | 0.072 | 0.000 | 0.000 | 1269.0 | 1730.0 | 1.0 |
 
 </div>
 
@@ -678,7 +529,7 @@ coefs_wday
 <div>
 
 |   | mean | sd | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
-|----------------|------|------|------|--------|------|------|------|-------|------|
+|----|----|----|----|----|----|----|----|----|----|
 | wday_coefficients0 | -0.022 | 0.012 | -0.046 | -0.001 | 0.0 | 0.0 | 3291 | 2463 | 1.0 |
 | wday_coefficients1 | -0.102 | 0.012 | -0.127 | -0.081 | 0.0 | 0.0 | 2360 | 2804 | 1.0 |
 | wday_coefficients2 | -0.062 | 0.013 | -0.085 | -0.038 | 0.0 | 0.0 | 2649 | 2870 | 1.0 |
@@ -709,7 +560,7 @@ coefs_yday
 <div>
 
 |   | mean | sd | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
-|----------------|-------|-------|-------|-------|-------|-------|-------|-------|-------|
+|----|----|----|----|----|----|----|----|----|----|
 | yday_coefficients0 | -0.089 | 0.367 | -0.744 | 0.628 | 0.017 | 0.008 | 441.0 | 877.0 | 1.00 |
 | yday_coefficients1 | -0.064 | 0.375 | -0.798 | 0.621 | 0.018 | 0.008 | 440.0 | 1069.0 | 1.00 |
 | yday_coefficients2 | -0.051 | 0.372 | -0.717 | 0.663 | 0.018 | 0.009 | 451.0 | 733.0 | 1.01 |
@@ -745,7 +596,7 @@ az.summary(m_fit, var_names=["elasticity"])
 <div>
 
 |            | mean  | sd    | hdi_3% | hdi_97% | mcse_mean | mcse_sd | ess_bulk | ess_tail | r_hat |
-|---------|-------|-------|-------|-------|-------|-------|-------|-------|-------|
+|------------|-------|-------|--------|---------|-----------|---------|----------|----------|-------|
 | elasticity | -1.26 | 0.332 | -1.924 | -0.659  | 0.008     | 0.006   | 1738.0   | 1264.0   | 1.0   |
 
 </div>

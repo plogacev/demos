@@ -1,0 +1,476 @@
+---
+title: "XXX"
+author: "Pavel Logačev"
+date: "r Sys.Date()"
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+    df-print: paged
+engine: knitr
+editor: visual
+---
+
+```{python message=FALSE, warning=FALSE}
+import polars as pl
+import re
+import ast
+from tqdm import tqdm
+import math
+import itertools
+import openai
+
+from openai import OpenAI
+from joblib import Memory
+
+# save the results from the LLM model to a cache
+memory = Memory(location="cache", verbose=0)
+```
+
+## Summary
+
+This notebook presents a two-stage pipeline for eliciting plausible online retail price ranges for consumer products using large language models (LLMs). It supports pricing analysts in making initial pricing decisions when historical data or comparable products are unavailable or unreliable.
+
+## Motivation and Approach
+
+When pricing a new product for the first time, or re-evaluating an existing product's pricing, pricing analysts are often flying blind. In many cases, there is no information about competitor pricing, limited or no sales history, and little variability in past price points. As a result, prices can’t be based on competitive benchmarks or estimated elasticities. Yet a price still needs to be set.
+
+In these situations, the goal is not precision: it is to make a well-reasoned initial decision. The price should be high enough to protect margin, low enough to be competitive, and aligned with how a reasonably informed customer would perceive the product: what it does, what it's made of, who it's for, and how the brand signals quality or positioning.
+
+To support this task, the notebook demonstrates a two-stage pipeline using large language models (LLMs) for eliciting reasonable price ranges. The method is applied to consumer product data from Mercado Libre sourced from 
+[here](https://github.com/pjstoc2/mercadolibre_analysis):
+
+  1. Product Attribute Extraction
+  GPT-3.5-turbo is used to extract a structured set of pricing-relevant attributes — such as product type, components, materials, intended use, and product tier — from unstructured titles and descriptions. The output is a standardized schema of factual product properties.
+
+  2. Price Range Elicitation
+  GPT-4o is then used on attributes to elicit a plausible retail price range — minimum, typical, and maximum — conditioned on regional market context (e.g., country, currency, and year).
+
+The two-step approach has several advantages over one-shot elicitation:
+
+  1. Explicit control over inputs: By decoupling attribute extraction from price judgment, we can precisely define which aspects of the product are considered — such as function, materials, target user, or technical features — rather than letting the model base its pricing on irrelevant or misleading text. This reduces hallucinations and improves consistency.
+  
+  2. Cost efficiency: Structured product summaries can be generated using a much smaller model and inexpensive model than the one used for eliciting price points, such as a local *mt5-small* or *GPT-3.5-turbo*, with only the pricing step, which benefits from broader and more recent market knowledge, being handled by GPT-4o. This separation helps control token usage and reduces overall API costs.
+  
+  3. Transparency and auditability: Having an explicit intermediate representation allows analysts to inspect what the model "saw" before making a pricing judgment. This makes the process easier to debug, validate, or even override with human input if needed.
+
+Both stages are implemented with batched processing, caching (joblib.Memory), and fallback logic to ensure reliability and scalability. The resulting price ranges can be used to support pricing diagnostics, detect potential over- or underpricing, and provide a structured starting point for analyst review.
+
+
+### Data
+
+The dataset (sourced from
+[here](https://github.com/pjstoc2/mercadolibre_analysis)) contains $5,859$ product listings from *Mercado Libre*, a major Latin American e-commerce platform. 
+The data was likely obtained via web scraping. The presence of both original and discounted prices suggests that pricing metadata was parsed directly from the listing structure, possibly through structured HTML extraction.
+
+In the present notebook, we use the following columns:
+
+- `product_title`: a free-text product title from the listing (in Spanish)
+- `product_description`: a potentially marketing description (in Spanish)
+- `price_usd`: the listed retail price, converted to USD
+- `price_discounted_usd`: the discounted price (if applicable), also converted to USD
+- `product_url`: a direct link to the product listing (mainly used for debugging)
+- `product_id`: a synthetic ID assigned during preprocessing (mainly used for debugging)
+
+```{python}
+products = pl.read_csv("./data/mercado_libre_products_cleaned.csv")
+products = (products
+            .rename({'Product': 'product_title', 'Description': 'product_description',
+                      'Product URL': 'product_url',
+                      'MXN': 'price_mxn', 'USD': 'price_usd', 
+                      'Sale Price USD': 'price_discounted_usd'})
+            .with_columns( pl.arange(0, products.height).alias('product_id') )
+            .select([ 'product_id', 'product_title', 'product_description', 'price_usd', 'price_discounted_usd', 'product_url'])
+           )
+products
+
+```
+
+```{python eval=FALSE}
+if False:
+  #%pip install transformers sentencepiece torch
+  from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+  import torch
+  
+  model_name = "google/mt5-small"
+  tokenizer = AutoTokenizer.from_pretrained(model_name)
+  model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+  
+  def summarize_mt5(title, description, lang="es", max_tokens=128):
+      prompt = f"""
+      Extract the following information from the product description:
+      - Product Type
+      - Key Components
+      - Materials
+      - Intended Use
+      - Target User
+      - Quantity or Unit Size
+  
+      Product Title: {title}
+      Product Description: {description}
+      """
+      inputs = tokenizer(prompt.strip(), return_tensors="pt", truncation=True)
+      with torch.no_grad():
+          outputs = model.generate(**inputs, max_new_tokens=max_tokens)
+      return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+```
+
+```{python}
+
+client = OpenAI(api_key="")
+
+```
+
+```{python}
+
+prompt_template_product_properties = """
+You are a product analyst.
+
+Extract pricing-relevant attributes from each of the following products.
+
+Focus exclusively on the **actual nature and use** of the product — its type, components, materials, and intended use — as well as the intended target group.  
+Do not be influenced by stylistic choices, promotional language, or verbosity in the original title or description.
+
+For each product, extract the following information:
+Brand – if applicable
+- Core Product Name without any unnecessary qualifications, if one is available; in English if internationally known
+- Product Type – general category or function of the item
+- Key Components – any major physical or electronic subcomponents (e.g., power adapter, filter unit)
+- Distinguishing Product Features – physical or functional traits not found in all comparable products (e.g., "72h battery life", "IP68 water resistance", "remote control", "8-core CPU")
+- Variant Features – options that vary across listings or versions, such as size, color, voltage, memory, etc.
+- Functional Tier – classify the product as "budget", "standard", or "premium" based on: objective technical features, material quality, and positioning within the brand’s lineup or market segment.
+    - Exclude marketing phrasing and minor stylistic differences (e.g., LED clock, color options, decorative packaging).
+    - A product is premium only if it clearly surpasses alternatives in core functionality, quality, and typical price level.
+- Materials – main materials used (e.g., plastic, steel, leather)
+- Intended Use – main use case (e.g., "home cleaning", "child transport", "audio playback")
+- Target User – intended end-user (e.g., "toddlers", "pet owners", "DIY hobbyists")
+- Quantity or Unit Size – volume, weight, or unit count (in metric units if applicable)
+- Year of Make – if known or can be inferred
+- Regulatory Certifications or Standards – if applicable (e.g., CE, FDA, NOM)
+- Likely Group Marketed To – broad audience the product seems designed for (e.g., "fitness enthusiasts", "tech-savvy users")
+- Likely Income Bracket – infer "low", "middle", or "high" based on the nature of the product and its expected price range, not on superficial style
+
+
+Products:
+{product_blocks}
+
+Instructions:
+Return a syntactically valid Python list of dicts. Each dict must correspond to one product, and must include the following fields in this exact order:
+
+`product_id, brand, product_name, product_type, components, product_features, variant_features, functional_tier, materials, intended_use, target_user, quantity, year_make, regulatory_certifications, marketed_to, marketed_to_income`
+
+- When a property is unknown or unclear, and an educated guess is not possible, return `'-'` for that field
+- Do **not** use vague summaries or marketing phrasing — extract or infer concrete factual content only
+- Use **European metrics** for quantity/unit size (e.g., ml, cm, g); convert if necessary
+- Do not include explanations, markdown, or formatting beyond the list of dicts
+""".strip()
+```
+
+```{python}
+
+def make_product_blocks(product_list):
+    blocks = []
+    for i, product in enumerate(product_list, 1):
+        blocks.append(f"""Product {i}:
+                          <ID>
+                          {product['product_id']}
+                          </ID>
+                          <TITLE>
+                          {product['product_title']}
+                          </TITLE>
+                          <DESCRIPTION>
+                          {product['product_description']}
+                          </DESCRIPTION>
+                      """)
+    return "\n\n".join(blocks).strip()
+
+@memory.cache(ignore=["client"])
+def summarize_product_descriptions_batch(client, product_list):
+        """ """
+        product_blocks = make_product_blocks(product_list)
+        
+        prompt = prompt_template_product_properties.format(
+            product_blocks=product_blocks
+        )
+
+        try:
+          response = client.chat.completions.create(
+              model="gpt-3.5-turbo",
+              messages=[{"role": "user", "content": prompt}],
+              temperature=0,
+          )
+          
+          reply = response.choices[0].message.content
+          reply = re.sub(r"^```(?:python)?\s*|\s*```$", "", reply.strip(), flags=re.IGNORECASE)
+          reply = ast.literal_eval(reply)
+
+        except:
+          if batch_size == 1:
+              raise
+          new_batch_size = math.floor(batch_size/2)
+          #print(f"new batch size: {new_batch_size}")
+          #if "maximum context length" in str(e):
+          return summarize_product_descriptions(client, product_list, batch_size=new_batch_size)
+
+        return reply
+
+
+@memory.cache(ignore=["client"])
+def summarize_product_descriptions(client, product_list, batch_size=10):
+    """ """
+    num_batches = math.ceil(len(product_list) / batch_size)
+    product_list_it = iter(product_list)
+    
+    results = []
+    for _ in tqdm(range(num_batches), desc="Retrieving price ranges"):
+        product_batch = list(itertools.islice(product_list_it, batch_size))
+        result_batch = summarize_product_descriptions_batch(client, product_batch)
+        results.extend(result_batch)
+
+    return results
+  
+#@memory.cache(ignore=["client"], verbose=10)
+#def summarize_product_descriptions_batch(client, product_list):
+#  print("called")
+#  return {}
+```
+
+```{python}
+# @start: $8.37, ~left: $6.63
+product_list = products[['product_id', 'product_title', 'product_description']].to_dicts()
+
+product_summaries_1 = summarize_product_descriptions(client, product_list[0:2660], batch_size = 10)
+product_summaries_2 = summarize_product_descriptions(client, product_list[2660:], batch_size = 10)
+
+if False:
+  summarize_product_descriptions(client, product_list[2660:2670], batch_size = 10)
+  
+  x1 = summarize_product_descriptions_batch(client, product_list[2660:2665])
+  x1 = re.sub(r"^```(?:python)?\s*|\s*```$", "", x1.strip(), flags=re.IGNORECASE)
+  pprint.pprint( ast.literal_eval(x1) )
+  
+  x2 = summarize_product_descriptions_batch(client, product_list[2665:2670])
+  print(x)
+  
+  import pprint
+  pprint.pprint(x)
+  
+  x = re.sub(r"^```(?:python)?\s*|\s*```$", "", x.strip(), flags=re.IGNORECASE)
+  ast.literal_eval(x)
+
+
+```
+
+```{python}
+
+product_list[2660:2669]
+
+```
+
+```{python}
+
+pprint.pprint(product_summaries)
+pl.DataFrame(product_summaries[19:21])
+
+pprint.pprint(product_summaries[19:21])
+
+# Coerce lists to strings for compatibility
+product_summaries_uniform = [
+    {k: ", ".join(v) if isinstance(v, list) else v for k, v in row.items()}
+    for row in product_summaries
+]
+
+df = pl.DataFrame(product_summaries_uniform)
+
+```
+
+```{python}
+
+prompt_template_price_range = """
+You are a pricing assistant.
+
+Estimate the typical **online retail** price range for each of the following products, based on publicly available prices in {region}, as close to the year {year} as possible. Prioritize prices from local online platforms and regional e-commerce sites. If local data is scarce, use prices from the most **geographically or economically comparable regions** for which prices are available.
+- Prioritize sources with high traffic and strong market influence (e.g., Amazon, local online supermarkets, major regional e-commerce platforms).
+- Reflect everyday consumer pricing — exclude promotional or bulk prices.
+
+All prices must be reported in **{currency}**. If source prices are in a different currency, adjust to {currency} using appropriate historical exchange rates and contextual knowledge.
+
+Focus exclusively on the **actual nature and use** of the product, and the target group — its type, components, materials, and intended use.
+- Ignore stylistic or marketing choices in the title or description (e.g., exaggerated adjectives, description length, or promotional phrasing).
+- Prioritize functional and categorical cues, such as:
+  - What is the product?
+  - What is it made of?
+  - Who is it for (e.g. child vs. adult, consumer vs. professional)?
+  - How is it typically used?
+
+For each product, estimate:
+- The **lowest plausible price** — the lowest price a typical retailer might charge for this item, excluding outliers or defective goods.
+- The **highest plausible price** — the upper bound of reasonable retail pricing, excluding rare luxury versions or bundles.
+- The **most typical price** — the price point at which the product is most commonly sold (median or mode).
+
+Products:
+{product_summary}
+
+Instructions:
+Return a syntacticly valid python list of lists, each in the following format:
+[product_id, lowest_price, highest_price, typical_price]
+
+Do not include explanations, citations, or formatting beyond this structure.
+""".strip()
+
+#If you cannot find enough relevant price data or the product is not typically sold online in this region, return:
+#[product_id, None, None, None]
+
+```
+
+```{python}
+def retrieve_price_ranges_batch(client, product_summary, currency, year, region):
+    """ """
+    prompt = prompt_template_price_range.format(
+        product_summary=product_summary,
+        currency=currency,
+        year=year,
+        region=region,
+    )
+    prompt = re.sub(r'\s+', ' ', prompt)
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+    
+    reply = response.choices[0].message.content
+    reply = re.sub(r"^```(?:python)?\s*|\s*```$", "", reply.strip(), flags=re.IGNORECASE)
+    estimates = ast.literal_eval(reply)
+    
+    results = []
+    for est in estimates:
+        cur_result = { 'product_id':  est[0], 'lower': est[1], 'upper': est[2], 'typical': est[3] }
+        results.append( cur_result )
+    
+    return results
+  
+
+def retrieve_price_ranges(client, product_list, currency, year, region, batch_size=10):
+    """ """
+    num_batches = math.ceil(len(product_list) / batch_size)
+    product_list_it = iter(product_list)
+    
+    results = []
+    for _ in tqdm(range(num_batches), desc="Retrieving price ranges"):
+        product_batch = list(itertools.islice(product_list_it, batch_size))
+        product_summary = summarize_product_descriptions(client, product_batch, model="gpt-3.5-turbo")
+        print(product_summary)
+        result_batch = retrieve_price_ranges_batch(client, product_summary, currency, year, region)
+        results.extend(result_batch)
+
+    return results
+
+```
+
+```{python}
+currency = "USD"
+year = 2025
+region = "Mexico"
+```
+
+```{python}
+n = 200
+i_start = 0
+i_end = i_start + n
+batch_size = 10
+
+cur_product_list_complete = products[i_start:i_end].to_dicts()
+cur_product_list = products[['product_id', 'product_title', 'product_description']][i_start:i_end].to_dicts()
+len(cur_product_list)
+
+estimates = retrieve_price_ranges(client, cur_product_list, currency, year, region, batch_size = batch_size)
+estimates = pl.DataFrame( estimates )
+estimates = estimates.with_columns( pl.col("product_id").cast(pl.Int128) ) 
+len(estimates)
+```
+
+```{python}
+products[i_start:i_end].join( estimates, how = "left", on = "product_id" ).with_columns(
+  (pl.col("price_usd") - pl.col("typical")).alias("delta")
+).sort("delta").filter(pl.col("delta").is_not_null())
+
+```
+
+```{python}
+x = summarize_product_descriptions(client, [cur_product_list_complete[174]], model="gpt-3.5-turbo")
+print(x)
+```
+
+```{python}
+df = products[i_start:i_end].join( estimates, how = "left", on = "product_id" )
+df = df.with_columns([
+  (pl.col("price_usd") < pl.col("lower")).alias("is_list_price_lower"),
+  (pl.col("price_usd") > pl.col("upper")).alias("is_list_price_higher"),
+  (pl.col("price_discounted_usd") < pl.col("lower")).alias("is_discounted_price_lower"),
+  (pl.col("price_discounted_usd") > pl.col("upper")).alias("is_discounted_price_higher"),
+])
+
+df.select(
+  pl.col("is_list_price_lower").mean().alias("perc_list_price_lower"),
+  pl.col("is_list_price_higher").mean().alias("perc_list_price_higher"),
+  pl.col("is_discounted_price_lower").mean().alias("perc_discounted_price_lower"),
+  pl.col("is_discounted_price_higher").mean().alias("perc_discounted_price_higher")
+)
+#┌───────────────────────┬────────────────────────┬────────────────────────┬────────────────────────┐
+#│ perc_list_price_lower ┆ perc_list_price_higher ┆ perc_discounted_price_ ┆ perc_discounted_price_ │
+#│ ---                   ┆ ---                    ┆ lower                  ┆ higher                 │
+#│ f64                   ┆ f64                    ┆ ---                    ┆ ---                    │
+#╞═══════════════════════╪════════════════════════╪════════════════════════╪════════════════════════╡
+#│ 0.308511              ┆ 0.159574               ┆ 0.452128               ┆ 0.085106               │
+#└───────────────────────┴────────────────────────┴────────────────────────┴────────────────────────┘
+```
+
+```{python}
+df.write_csv("~/Downloads/tmp_1.csv")
+```
+
+```{python}
+# *pre*
+#   input:  92k
+#   output: 10.2k
+
+# *100 items*/batch size=10
+#   input: 143.7k -> delta 50k
+#   output: 11.8k -> delta 1.6k
+# -> $0.55
+
+# *500 items*/batch size=10
+#   input:  384.7k
+#   output:  19.8k
+# -> $1.08
+
+# *500 items*/batch size=15
+#   input: 623.8k
+#   output: 27.5k
+# -> $1.70
+
+# *500 items*/batch size=15
+#   input: 863.9k
+#   output: 34.3k
+# -> $2.23
+
+# *500 items*/batch size=15
+#   input:  1104k
+#   output: 42.3k
+# -> $2.85
+
+# *2000 items*/batch size=15
+#   input:  2000k
+#   output: 71.7k
+# -> $4.90
+
+```
+
+## Repository 
+
+All data and source code arellm_price_range_assessmentllm_price_range_assessmentllm_price_range_assessmentllm_price_range_assessmentllm_price_range_assessmentllm_price_range_assessmentdata_science/portfolio/llm_price_range_assessment/data_science/portfolio/llm_price_range_assessment/ available here:\
+👉 [https://github.com/plogacev/case_studies/tree/main/llm_price_range_assessment](https://github.com/plogacev/case_studies/tree/main/pricedist_changepoints){.uri}
