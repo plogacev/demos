@@ -443,7 +443,7 @@ window.Quarto = {
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>elasticity <span class="op">=</span> <span class="op">-</span><span class="fl">1.2</span></span>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>elasticity <span class="op">=</span> <span class="op">-</span><span class="fl">1.4</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>sales_with_price_effect <span class="op">=</span> np.exp( np.log(sales_with_random_component) <span class="op">+</span> elasticity <span class="op">*</span> (log_price <span class="op">-</span> np.mean(log_price)) )</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> plot_function(x<span class="op">=</span>date_range, y <span class="op">=</span> sales_with_price_effect, title<span class="op">=</span><span class="st">""</span>, xlab<span class="op">=</span><span class="st">"Day of the Week"</span>, ylab<span class="op">=</span><span class="st">"Latent Sales"</span>) <span class="op">+</span> scale_x_datetime(breaks <span class="op">=</span> breaks)</span>
 <span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>_ <span class="op">=</span> p.draw(show<span class="op">=</span><span class="va">True</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -1235,7 +1235,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb20-229"><a href="#cb20-229" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb20-230"><a href="#cb20-230" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-233"><a href="#cb20-233" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-234"><a href="#cb20-234" aria-hidden="true" tabindex="-1"></a>elasticity <span class="op">=</span> <span class="op">-</span><span class="fl">1.2</span></span>
+<span id="cb20-234"><a href="#cb20-234" aria-hidden="true" tabindex="-1"></a>elasticity <span class="op">=</span> <span class="op">-</span><span class="fl">1.4</span></span>
 <span id="cb20-235"><a href="#cb20-235" aria-hidden="true" tabindex="-1"></a>sales_with_price_effect <span class="op">=</span> np.exp( np.log(sales_with_random_component) <span class="op">+</span> elasticity <span class="op">*</span> (log_price <span class="op">-</span> np.mean(log_price)) )</span>
 <span id="cb20-236"><a href="#cb20-236" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> plot_function(x<span class="op">=</span>date_range, y <span class="op">=</span> sales_with_price_effect, title<span class="op">=</span><span class="st">""</span>, xlab<span class="op">=</span><span class="st">"Day of the Week"</span>, ylab<span class="op">=</span><span class="st">"Latent Sales"</span>) <span class="op">+</span> scale_x_datetime(breaks <span class="op">=</span> breaks)</span>
 <span id="cb20-237"><a href="#cb20-237" aria-hidden="true" tabindex="-1"></a>_ <span class="op">=</span> p.draw(show<span class="op">=</span><span class="va">True</span>)</span>

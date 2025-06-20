@@ -203,7 +203,7 @@ _ = p.draw(show=True)
 ```
 
 ```{python}
-elasticity = -1.2
+elasticity = -1.4
 sales_with_price_effect = np.exp( np.log(sales_with_random_component) + elasticity * (log_price - np.mean(log_price)) )
 p = plot_function(x=date_range, y = sales_with_price_effect, title="", xlab="Day of the Week", ylab="Latent Sales") + scale_x_datetime(breaks = breaks)
 _ = p.draw(show=True)

@@ -326,7 +326,7 @@ def model_local_level_poisson(sales: jnp.array, log_price_centered: jnp.array, w
 
     def sample_price_effect(log_price_centered):
         # Prior for price elasticity
-        elasticity_pos = numpyro.sample( "elasticity_pos", dist.HalfNormal(5) )
+        elasticity_pos = numpyro.sample( "elasticity_pos", dist.HalfNormal(10) )
         elasticity = numpyro.deterministic("elasticity", -1 * elasticity_pos)
         return log_price_centered * elasticity
 
@@ -593,7 +593,7 @@ _ = p.draw(show=True)
 
 #### 2.3.4 Price Elasticity
 
-- The estimated elasticity coefficient is close enough to the true value ($-1.2$), though the $94\%$ credible interval is quite wide.
+- The estimated elasticity coefficient is close enough to the true value ($-1.4$), though the $94\%$ credible interval is quite wide.
 
 ```{python}
 summary = az.summary(m_fit, var_names=["elasticity"])
