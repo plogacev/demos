@@ -1,7 +1,9 @@
 ---
 title: "Price Distribution Elicitation from an LLM"
-author: "Pavel Logačev"
-date: "r Sys.Date()"
+author:
+  name: "Pavel Logačev"
+  email: "pavel@example.com"
+date: today
 format:
   html:
     toc: true
