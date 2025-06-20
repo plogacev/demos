@@ -515,7 +515,11 @@ m_fit, model_arguments = run_nuts(data['sales'], data['log_price'], data['wday']
 
 ```{python}
 # Let's look at the estimated random walk component of the model.
-az.summary(m_fit, var_names=["sigma", "log_state_delta"], filter_vars="like")
+summary = az.summary(m_fit, var_names=["sigma", "log_state_delta"], filter_vars="like")
+```
+
+```{r}
+py$summary
 ```
 
 - Here, we'll plot the estimated the random walk component, which also incorporates long term trends and growth or decline of sales. For present purposes, this is what amounts to irrelevant noise in the model.
@@ -589,11 +593,12 @@ _ = p.draw(show=True)
 
 #### 2.3.4 Price Elasticity
 
-- The estimated elasticity coefficient is close to the true value ($-1.2$).
+- The estimated elasticity coefficient is close enough to the true value ($-1.2$), though the $94%$ credible interval is quite wide.
 
 ```{python}
 summary = az.summary(m_fit, var_names=["elasticity"])
 ```
+
 ```{r}
 py$summary
 ```
