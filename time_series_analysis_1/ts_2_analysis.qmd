@@ -593,7 +593,7 @@ _ = p.draw(show=True)
 
 #### 2.3.4 Price Elasticity
 
-- The estimated elasticity coefficient is close enough to the true value ($-1.2$), though the $94%$ credible interval is quite wide.
+- The estimated elasticity coefficient is close enough to the true value ($-1.2$), though the $94\%$ credible interval is quite wide.
 
 ```{python}
 summary = az.summary(m_fit, var_names=["elasticity"])

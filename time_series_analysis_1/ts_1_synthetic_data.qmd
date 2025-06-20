@@ -251,7 +251,9 @@ X = pd.DataFrame({
 
 y = sales_realized
 poisson_model = sm.GLM(y, X, family=sm.families.Poisson()).fit()
-poisson_model.summary()
+summary = poisson_model.summary()
+print( summary )
+
 ```
 
 ## 5. Save Sales
